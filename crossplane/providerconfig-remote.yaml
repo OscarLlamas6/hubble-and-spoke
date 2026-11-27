@@ -1,0 +1,23 @@
+# =============================================================================
+# ProviderConfig "remote": CON QUÉ CREDENCIALES y CONTRA QUÉ CLÚSTER
+# -----------------------------------------------------------------------------
+# Un Provider sabe "cómo"; el ProviderConfig dice "dónde y como quién".
+# El Secret referenciado NO está en git: lo genera scripts/crossplane.sh con
+#   kind get kubeconfig --name remote --internal
+# `--internal` es esencial: usa https://remote-control-plane:6443 (nombre en la
+# red Docker) en vez de https://127.0.0.1:<puerto>, que solo sirve en tu host.
+#
+# Aviso de laboratorio: ese kubeconfig es cluster-admin de remote. En producción
+# usarías un ServiceAccount con RBAC mínimo y rotación de credenciales.
+# =============================================================================
+apiVersion: kubernetes.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: remote
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: remote-kubeconfig
+      key: kubeconfig

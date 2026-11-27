@@ -1,0 +1,57 @@
+# =============================================================================
+# provider-kubernetes: le enseña a Crossplane a crear objetos de Kubernetes
+# -----------------------------------------------------------------------------
+# Crossplane "puro" solo sabe orquestar. Quien habla con una API externa es un
+# Provider. Este en concreto expone el recurso gestionado `Object`: "mantén este
+# manifiesto vivo en el clúster que indique el ProviderConfig".
+#
+# Se instalan tres objetos:
+#   1. DeploymentRuntimeConfig  cómo correr el pod del provider
+#   2. Provider                 qué paquete (OCI) instalar
+#   3. RBAC                     permisos en hub para crear HTTPRoutes
+# =============================================================================
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-kubernetes
+spec:
+  # Por defecto el ServiceAccount del provider lleva un sufijo aleatorio
+  # (provider-kubernetes-1a2b3c...). Lo fijamos para poder darle RBAC estable.
+  serviceAccountTemplate:
+    metadata:
+      name: provider-kubernetes
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-kubernetes
+spec:
+  # Versión fijada. El paquete es una imagen OCI que trae CRDs + controlador.
+  package: xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.4.1
+  runtimeConfigRef:
+    name: provider-kubernetes
+---
+# Permisos para actuar sobre el PROPIO hub (ProviderConfig "hub").
+# Mínimo privilegio: solo lo que la Composition crea en hub.
+# (Sobre remote no hace falta nada aquí: usa las credenciales del kubeconfig.)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: provider-kubernetes-hub
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: provider-kubernetes-hub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: provider-kubernetes-hub
+subjects:
+  - kind: ServiceAccount
+    name: provider-kubernetes
+    namespace: crossplane-system

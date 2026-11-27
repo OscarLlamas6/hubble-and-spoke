@@ -1,0 +1,18 @@
+# =============================================================================
+# Prueba mínima ANTES de la Composition (FASE 3):
+# ¿puede Crossplane, desde hub, crear algo en remote?
+# Un `Object` es un Managed Resource: envuelve un manifiesto cualquiera.
+# =============================================================================
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: smoke-remote-namespace
+spec:
+  providerConfigRef:
+    name: remote
+  forProvider:
+    manifest:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: crossplane-smoke-test

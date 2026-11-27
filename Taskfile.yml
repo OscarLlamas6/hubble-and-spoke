@@ -44,3 +44,8 @@ tasks:
   submariner:status:
     desc: "[fase 2] subctl show all"
     cmd: ./scripts/run.sh subctl show all
+
+  # --- Fase 3: Crossplane ----------------------------------------------------
+  crossplane:
+    desc: "[fase 3] Crossplane, provider-kubernetes, functions y ProviderConfigs"
+    cmd: ./scripts/crossplane.sh

@@ -1,0 +1,27 @@
+# =============================================================================
+# Lo que escribe el consumidor en el modelo v2: el XR directamente
+# -----------------------------------------------------------------------------
+# Compara con ../../examples/webapp-claim.yaml. El spec es idéntico; la
+# diferencia es que este objeto ES el recurso compuesto (no hay claim ni un
+# XWebApp con sufijo aleatorio por detrás).
+#
+#   task example:apply:v2
+#   curl -H 'Host: webapp-v2.local' http://localhost:8080/
+#
+# Namespace distinto (demo-v2) para que no choque con la app de v1 en remote.
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-v2
+---
+apiVersion: platform.lab.local/v1alpha1
+kind: WebAppV2
+metadata:
+  name: webapp
+  namespace: demo-v2
+spec:
+  image: traefik/whoami:v1.11.0
+  replicas: 2
+  port: 80
+  hostname: webapp-v2.local

@@ -32,6 +32,9 @@ step "ProviderConfigs"
 retry 30 2 khub get crd providerconfigs.kubernetes.crossplane.io || die "Falta el CRD ProviderConfig"
 khub wait --for=condition=Established crd/providerconfigs.kubernetes.crossplane.io crd/objects.kubernetes.crossplane.io --timeout=120s
 khub apply -f "${CP}/providerconfig-remote.yaml" -f "${CP}/providerconfig-hub.yaml"
+# Equivalente moderno (namespaced MRs), para la API v2.
+khub wait --for=condition=Established crd/clusterproviderconfigs.kubernetes.m.crossplane.io crd/objects.kubernetes.m.crossplane.io --timeout=120s
+khub apply -f "${CP}/v2/clusterproviderconfig-remote.yaml"
 
 step "Prueba: crear un Namespace en ${REMOTE_CLUSTER} desde ${HUB_CLUSTER}"
 khub apply -f "${CP}/smoke-namespace.yaml"

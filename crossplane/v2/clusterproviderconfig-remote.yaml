@@ -1,0 +1,23 @@
+# =============================================================================
+# ClusterProviderConfig "remote" — configuración para los recursos MODERNOS
+# -----------------------------------------------------------------------------
+# Mismo Secret que ../providerconfig-remote.yaml, otro tipo de objeto:
+#
+#   kubernetes.crossplane.io/ProviderConfig             → Object cluster-scoped (v1)
+#   kubernetes.m.crossplane.io/ProviderConfig           → por namespace
+#   kubernetes.m.crossplane.io/ClusterProviderConfig    → compartido por todos  ← este
+#
+# En una plataforma real usarías un ProviderConfig por namespace para que cada
+# equipo tenga sus propias credenciales.
+# =============================================================================
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: ClusterProviderConfig
+metadata:
+  name: remote
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: remote-kubeconfig
+      key: kubeconfig

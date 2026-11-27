@@ -11,5 +11,5 @@ check-deps:         ; @task check-deps
 join-clusters:      ; @task submariner
 install-crossplane: ; @task crossplane api
 install-gateway:    ; @task gateway
-deploy-example:     ; @task example:apply
+deploy-example:     ; @task example:apply example:apply:v2
 test:               ; @task test

@@ -31,6 +31,7 @@ tasks:
       - task: api
       - task: gateway
       - task: example:apply
+      - task: example:apply:v2
       - echo "Listo. Prueba con 'task test' o abre el recorrido 3D con 'task tour'."
 
   down:
@@ -72,12 +73,16 @@ tasks:
 
   # --- Fase 4: API WebApp ----------------------------------------------------
   api:
-    desc: "[fase 4] Aplica el XRD y la Composition de WebApp"
+    desc: "[fase 4] Aplica XRD y Composition de las dos APIs (v1 y v2)"
     cmd: ./scripts/webapp-api.sh
 
   crossplane:render:
-    desc: "[fase 4] Renderiza el pipeline en local (sin clúster)"
-    cmd: ./scripts/render.sh {{.CLI_ARGS}}
+    desc: "[fase 4] Renderiza el pipeline v1 en local (sin clúster)"
+    cmd: ./scripts/render.sh v1 {{.CLI_ARGS}}
+
+  crossplane:render:v2:
+    desc: "[fase 4] Renderiza el pipeline v2 en local (sin clúster)"
+    cmd: ./scripts/render.sh v2 {{.CLI_ARGS}}
 
   # --- Fase 5: Gateway API + Envoy -------------------------------------------
   gateway:
@@ -93,9 +98,37 @@ tasks:
     desc: "[fase 6] Borra el claim (y con él todo lo compuesto)"
     cmd: ./scripts/example.sh delete {{.FILE}}
 
+  example:apply:v2:
+    desc: "[fase 6] Aplica el XR v2 de ejemplo (sin claim)"
+    cmd: ./scripts/example.sh apply crossplane/v2/examples/webappv2.yaml
+
+  example:delete:v2:
+    desc: "[fase 6] Borra el XR v2 de ejemplo"
+    cmd: ./scripts/example.sh delete crossplane/v2/examples/webappv2.yaml
+
   test:
-    desc: "[fase 6] Smoke test de punta a punta"
+    desc: "[fase 6] Smoke test de punta a punta de ambas APIs"
+    cmds:
+      - task: test:v1
+      - task: test:v2
+
+  test:unit:
+    desc: "Tests de las Compositions con xprin, sin clúster (task test:unit -- tests/v2/...)"
+    deps: [tools]
+    cmd: ./scripts/unit-test.sh {{.CLI_ARGS}}
+
+  test:unit:update-goldens:
+    desc: "Regenera las salidas de referencia de xprin (revisa el diff después)"
+    deps: [tools]
+    cmd: XPRIN_COMMAND=update-goldens ./scripts/unit-test.sh {{.CLI_ARGS}}
+
+  test:v1:
+    desc: "[fase 6] Smoke test del WebApp (claim v1)"
     cmd: ./scripts/smoke-test.sh
+
+  test:v2:
+    desc: "[fase 6] Smoke test del WebAppV2 (XR v2)"
+    cmd: HOST=webapp-v2.local NS=demo-v2 ./scripts/smoke-test.sh
 
   status:
     desc: Estado de todo el flujo en ambos clústeres

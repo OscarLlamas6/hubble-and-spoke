@@ -1,0 +1,76 @@
+# =============================================================================
+# XRD **v2** — la forma actual de definir una API en Crossplane
+# -----------------------------------------------------------------------------
+# Convive con ../xrd-webapp.yaml (v1, con claims) para poder compararlas.
+#
+#                      v1 (xrd-webapp.yaml)           v2 (este archivo)
+#   apiVersion         apiextensions.crossplane.io/v1  .../v2
+#   lo que aplicas     Claim WebApp (namespaced)       XR WebAppV2 (namespaced)
+#   objetos            Claim + XR cluster-scoped       solo el XR
+#   scope              LegacyCluster (implícito)       Namespaced
+#   campos internos    spec.compositionRef, ...        spec.crossplane.*
+#
+# Un solo CRD: `webappv2s`. No hay claimNames porque no hay claims.
+# El kind se llama WebAppV2 solo para que ambas API puedan coexistir sin
+# ambigüedad en `kubectl`; en un proyecto real sería simplemente WebApp.
+# =============================================================================
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: webappv2s.platform.lab.local
+spec:
+  # Namespaced (default en v2): el XR vive en un namespace, así que se le puede
+  # dar RBAC por equipo directamente. Eso era justo lo que resolvía el claim.
+  scope: Namespaced
+  group: platform.lab.local
+  names:
+    kind: WebAppV2
+    plural: webappv2s
+  defaultCompositionRef:
+    name: webappv2-multicluster
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      additionalPrinterColumns:
+        - name: HOSTNAME
+          type: string
+          jsonPath: .status.hostname
+      # El contrato es EL MISMO que en v1: cambia el modelo, no lo que pide
+      # el usuario.
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  description: Imagen de contenedor de la aplicación (con tag).
+                replicas:
+                  type: integer
+                  description: Número de réplicas en el clúster remote.
+                  default: 1
+                  minimum: 1
+                  maximum: 5
+                port:
+                  type: integer
+                  description: Puerto HTTP en el que escucha el contenedor.
+                  default: 80
+                  minimum: 1
+                  maximum: 65535
+                hostname:
+                  type: string
+                  description: >-
+                    Hostname que enruta el Gateway. Si se omite se calcula como
+                    <nombre>.v2.apps.lab.local
+                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+            status:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                clusterSetDNS:
+                  type: string

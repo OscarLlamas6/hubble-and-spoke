@@ -7,10 +7,10 @@ Tienes **dos clústeres de Kubernetes** en tu máquina:
 - **`hub`**: la "central". Desde aquí pides las cosas y por aquí entran las visitas.
 - **`remote`**: donde realmente corren las aplicaciones.
 
-Escribes **un archivo de unas pocas líneas** en `hub` que dice *"quiero una app web con esta imagen, 2 copias y este nombre"*. Con eso, automáticamente:
+Al instalar el laboratorio (`task up`), los dos clústeres quedan **comunicados por un túnel cifrado**, una sola vez. A partir de ahí, escribes **un archivo de unas pocas líneas** en `hub` que dice *"quiero una app web con esta imagen, 2 copias y este nombre"*. Con eso, automáticamente:
 
 1. **Se crea la app en el otro clúster** (`remote`). De eso se encarga *Crossplane*.
-2. **Los dos clústeres quedan comunicados** por un túnel cifrado, y `hub` se entera de que la app existe. De eso se encarga *Submariner*.
+2. **`hub` se entera de que esa app existe** y puede llegar a ella por el túnel. De eso se encarga *Submariner* (con su componente *Lighthouse*).
 3. **Se publica la app en una puerta de entrada** en `hub`. De eso se encargan *Gateway API* y *Envoy Gateway*.
 
 Resultado: abres una petición contra `hub` y **te responde una app que está corriendo en `remote`**.

@@ -80,3 +80,7 @@ tasks:
   status:
     desc: Estado de todo el flujo en ambos clústeres
     cmd: ./scripts/status.sh
+
+  xds:
+    desc: "[fase 5] Config efectiva de Envoy: LDS/RDS/CDS/EDS (task xds -- raw)"
+    cmd: ./scripts/xds.sh {{.CLI_ARGS}}

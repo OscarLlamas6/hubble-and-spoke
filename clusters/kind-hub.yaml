@@ -1,0 +1,39 @@
+# =============================================================================
+# Clúster "hub": el plano de control del laboratorio
+# -----------------------------------------------------------------------------
+# Aquí viven Crossplane, Envoy Gateway y el broker de Submariner.
+# Es el ÚNICO punto de entrada de tráfico desde tu máquina.
+#
+# CIDRs — por qué importan:
+#   Submariner enruta paquetes entre clústeres usando las IPs reales de pods y
+#   services. Si ambos clústeres usaran 10.244.0.0/16, una IP destino sería
+#   ambigua: ¿es un pod local o del otro clúster? La tabla de rutas siempre
+#   preferiría la local y el tráfico nunca cruzaría el túnel.
+#
+#            pods           services
+#   hub      10.10.0.0/16   10.110.0.0/16
+#   remote   10.20.0.0/16   10.120.0.0/16
+#
+#   Tampoco deben chocar con tu LAN ni con las redes Docker (172.x).
+#   (La alternativa cuando no puedes evitar el solape es Globalnet.)
+# =============================================================================
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: hub
+networking:
+  podSubnet: "10.10.0.0/16"
+  serviceSubnet: "10.110.0.0/16"
+# Un solo nodo (control-plane que además ejecuta cargas): es la configuración
+# más simple, y consume muchos menos recursos del kernel (inotify) que
+# añadir workers. Este mismo nodo será el "gateway node" de Submariner.
+nodes:
+  - role: control-plane
+    # Publica un puerto del NODO en tu máquina:
+    #   localhost:8080  →  hub-control-plane:30080  (NodePort de Envoy)
+    # kind no tiene LoadBalancer de nube, así que esta es la puerta de entrada.
+    # Solo escucha en 127.0.0.1 para no exponer el lab a tu red.
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+        listenAddress: "127.0.0.1"
+        protocol: TCP

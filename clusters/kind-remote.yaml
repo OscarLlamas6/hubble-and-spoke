@@ -1,0 +1,19 @@
+# =============================================================================
+# Clúster "remote": el clúster de aplicaciones
+# -----------------------------------------------------------------------------
+# Aquí corren los Deployments/Services que Crossplane crea desde el hub.
+# No tiene Crossplane ni Gateway: solo cargas y el agente de Submariner.
+#
+# Sus CIDRs NO se solapan con los del hub (explicación en kind-hub.yaml).
+# =============================================================================
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: remote
+networking:
+  podSubnet: "10.20.0.0/16"
+  serviceSubnet: "10.120.0.0/16"
+# Un solo nodo (control-plane que además ejecuta cargas): es la configuración
+# más simple, y consume muchos menos recursos del kernel (inotify) que
+# añadir workers. Este mismo nodo será el "gateway node" de Submariner.
+nodes:
+  - role: control-plane

@@ -35,7 +35,7 @@ docker exec hub-control-plane curl -m 3 -s $IP || echo "sin conectividad (espera
 
 ## Fase 2 — Submariner
 
-Lee [submariner/README.md](../submariner/README.md) y [10-submariner](concepts/10-submariner.md).
+Lee [submariner/README.md](../submariner/README.md), [10-submariner](concepts/10-submariner.md) y [25-lighthouse](concepts/25-lighthouse.md).
 
 ```bash
 task submariner

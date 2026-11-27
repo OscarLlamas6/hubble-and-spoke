@@ -16,7 +16,7 @@ Las redes de pods y services son privadas de cada clúster. Sin Submariner (ni s
 | **Operator** | ambos | Despliega y mantiene el resto. |
 | **Gateway Engine** | nodo `submariner.io/gateway=true` | Establece el túnel (aquí [IPsec/libreswan](18-ipsec-libreswan.md)). |
 | **Route Agent** | cada nodo | Rutas para llevar el tráfico remoto hasta el gateway. |
-| **Lighthouse agent** | ambos | Traduce `ServiceExport` ↔ broker ↔ `ServiceImport`. |
+| **[Lighthouse](25-lighthouse.md) agent** | ambos | Traduce `ServiceExport` ↔ broker ↔ `ServiceImport`. |
 | **Lighthouse CoreDNS** | ambos | Responde la zona `clusterset.local`. |
 | **Globalnet** | opcional | NAT para CIDRs solapados (no usado). |
 
@@ -62,7 +62,7 @@ clusterset.local:53 {
 }
 ```
 
-`webapp.demo.svc.clusterset.local` → Lighthouse responde con la ClusterIP del Service en `remote`. Lighthouse además deja de anunciar clústeres cuyo túnel o endpoints no estén sanos.
+`webapp.demo.svc.clusterset.local` → Lighthouse responde con la ClusterIP del Service en `remote`. Lighthouse además deja de responder con servicios sin endpoints sanos. Detalle en [25 · Lighthouse](25-lighthouse.md).
 
 Envoy **no** usa este DNS (lee los EndpointSlices); sirve para cualquier otro pod.
 

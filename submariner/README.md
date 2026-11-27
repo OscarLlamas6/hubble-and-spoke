@@ -1,6 +1,6 @@
 # Submariner en este laboratorio
 
-> Concepto a fondo (arquitectura, datapath, DNS): [docs/concepts/10-submariner.md](../docs/concepts/10-submariner.md).
+> Concepto a fondo (arquitectura, datapath, DNS): [docs/concepts/10-submariner.md](../docs/concepts/10-submariner.md) y [25-lighthouse.md](../docs/concepts/25-lighthouse.md).
 > Aquí: **qué comandos se ejecutan, con qué flags y por qué**.
 > Automatizado en [scripts/submariner.sh](../scripts/submariner.sh) (`task submariner`).
 

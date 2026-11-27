@@ -1,5 +1,32 @@
 # hubble-and-spoke 🛰️
 
+## ¿Qué hace este proyecto? (en palabras simples)
+
+Tienes **dos clústeres de Kubernetes** en tu máquina:
+
+- **`hub`**: la "central". Desde aquí pides las cosas y por aquí entran las visitas.
+- **`remote`**: donde realmente corren las aplicaciones.
+
+Escribes **un archivo de unas pocas líneas** en `hub` que dice *"quiero una app web con esta imagen, 2 copias y este nombre"*. Con eso, automáticamente:
+
+1. **Se crea la app en el otro clúster** (`remote`). De eso se encarga *Crossplane*.
+2. **Los dos clústeres quedan comunicados** por un túnel cifrado, y `hub` se entera de que la app existe. De eso se encarga *Submariner*.
+3. **Se publica la app en una puerta de entrada** en `hub`. De eso se encargan *Gateway API* y *Envoy Gateway*.
+
+Resultado: abres una petición contra `hub` y **te responde una app que está corriendo en `remote`**.
+
+```bash
+curl -H "Host: webapp.local" http://localhost:8080/   # entra por hub, responde remote
+```
+
+Y si alguien borra o cambia algo a mano, la plataforma lo vuelve a dejar como pediste.
+
+Una analogía: `hub` es la **recepción** de una empresa y `remote` la **oficina** donde se trabaja. Tú entregas una solicitud en recepción; alguien monta el puesto en la oficina, tiende la línea entre ambos edificios y apunta en el directorio a dónde pasar las llamadas.
+
+📖 ¿Un término no te suena? Está en el **[glosario](docs/glossary.md)**.
+
+## Ficha técnica
+
 **Un solo YAML en un clúster → una aplicación corriendo en otro, publicada por un Gateway.**
 
 Laboratorio local para aprender a fondo **Crossplane**, **Compositions**, **Gateway API**, **Envoy Gateway / xDS** y **Submariner**, con dos clústeres `kind`. Es material de aprendizaje, **no** una referencia de producción.
@@ -89,6 +116,7 @@ curl -H "Host: webapp.local" http://localhost:8080/
 | Verlo en imágenes | [Recorrido 3D](https://oscarllamas6.github.io/hubble-and-spoke/) |
 | Construirlo paso a paso, rompiendo cosas | [docs/walkthrough.md](docs/walkthrough.md) |
 | Entender cómo encaja todo | [docs/architecture.md](docs/architecture.md) |
+| Buscar qué significa un término | [docs/glossary.md](docs/glossary.md) |
 | Saber por qué se hizo así | [docs/decisions.md](docs/decisions.md) |
 | Algo no funciona | [docs/troubleshooting.md](docs/troubleshooting.md) |
 
@@ -106,7 +134,7 @@ Todos con la misma plantilla: qué es, qué problema resuelve, conceptos clave, 
 | [15 · patch-and-transform](docs/concepts/15-function-patch-and-transform.md) | [19 · CoreDNS](docs/concepts/19-coredns.md) | [21 · Three.js y Pages](docs/concepts/21-threejs-github-pages.md) |
 | [16 · go-templating](docs/concepts/16-function-go-templating.md) | [20 · Multi-Cluster Services API](docs/concepts/20-multicluster-services-api.md) | |
 | [17 · auto-ready](docs/concepts/17-function-auto-ready.md) | | [23 · xprin](docs/concepts/23-xprin.md) |
-| [22 · Crossplane v2](docs/concepts/22-crossplane-v2.md) | | [24 · yq](docs/concepts/24-yq.md) |
+| [22 · Crossplane v2](docs/concepts/22-crossplane-v2.md) | [25 · Lighthouse](docs/concepts/25-lighthouse.md) | [24 · yq](docs/concepts/24-yq.md) |
 
 ## Comandos
 

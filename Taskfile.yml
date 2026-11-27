@@ -11,11 +11,31 @@
 # =============================================================================
 version: "3"
 
+# La salida de cada script se muestra tal cual; no repetimos el comando.
+silent: true
+
 tasks:
   default:
     desc: Lista los comandos disponibles
     cmd: task --list
-    silent: true
+
+  # --- Ciclo de vida completo ------------------------------------------------
+  up:
+    desc: Levanta TODO el laboratorio desde cero (idempotente)
+    cmds:
+      # `task:` en orden estricto. (`deps:` los correría en paralelo.)
+      - task: check-deps
+      - task: clusters
+      - task: submariner
+      - task: crossplane
+      - task: api
+      - task: gateway
+      - task: example:apply
+      - echo "Listo. Prueba con 'task test' o abre el recorrido 3D con 'task tour'."
+
+  down:
+    desc: Destruye los clústeres y artefactos (PURGE=1 borra también .bin)
+    cmd: ./scripts/down.sh
 
   # --- Fase 0: prerrequisitos ------------------------------------------------
   tools:

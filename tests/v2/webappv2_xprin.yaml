@@ -1,0 +1,74 @@
+# =============================================================================
+# Tests de la Composition v2 (XR namespaced) — formato xprin
+# -----------------------------------------------------------------------------
+# Aquí el input es `xr` (no hay claim). Incluye una salida de referencia
+# ("golden"): cualquier cambio en el render hace fallar el test hasta que lo
+# revises y ejecutes `task test:unit:update-goldens`.
+# =============================================================================
+common:
+  inputs:
+    composition: ../../crossplane/v2/composition-webappv2.yaml
+    functions: ../../crossplane/functions.yaml
+    crds:
+      - ../../crossplane/v2/xrd-webappv2.yaml
+      - ../.cache/provider.yaml
+      - ../.cache/httproute-crd.yaml
+  patches:
+    xrd: ../../crossplane/v2/xrd-webappv2.yaml
+
+tests:
+  # ---------------------------------------------------------------------------
+  - name: "v2: 4 Object modernos + 1 HTTPRoute sin envoltorio"
+    inputs:
+      xr: ../../crossplane/v2/render/xr.yaml
+    assertions:
+      xprin:
+        - { name: "4 Object", type: Count, resource: Object, value: 4 }
+        - { name: "HTTPRoute directo", type: Exists, resource: HTTPRoute/webapp }
+        - name: "los Object son del grupo moderno (.m.)"
+          type: FieldValue
+          resource: Object
+          field: apiVersion
+          operator: "=="
+          value: kubernetes.m.crossplane.io/v1alpha1
+        - name: "todos los Object viven en el namespace del XR"
+          type: FieldValue
+          resource: Object
+          field: metadata.namespace
+          operator: "=="
+          value: demo-v2
+      dyff:
+        - name: "render completo igual a la referencia"
+          expected: golden-render.yaml
+    hooks:
+      post-test:
+        - name: "hostname por defecto v2"
+          run: ../lib/field.sh '{{ .Outputs.Render }}' httproute .spec.hostnames[0] webapp.v2.apps.lab.local
+        - name: "namespace remoto sin política Delete"
+          run: ../lib/field.sh '{{ .Outputs.Render }}' remote-namespace '.spec.managementPolicies | contains(["Delete"])' false
+
+  # ---------------------------------------------------------------------------
+  # Los tres casos siguientes prueban la lógica de Ready escrita en la
+  # plantilla go-templating (un HTTPRoute no tiene condición Ready propia).
+  - name: "v2: ruta aceptada y resuelta → XR Ready"
+    inputs:
+      xr: ../../crossplane/v2/render/xr.yaml
+      observed-resources: observed-route-ok.yaml
+    hooks:
+      post-test:
+        - name: "Ready=True"
+          run: |
+            test "$(yq eval-all 'select(.kind == "WebAppV2") | .status.conditions[] | select(.type == "Ready") | .status' '{{ .Outputs.Render }}')" = True
+
+  - name: "v2: backend no resuelto → XR NO Ready y culpa a httproute"
+    inputs:
+      xr: ../../crossplane/v2/render/xr.yaml
+      observed-resources: observed-route-unresolved.yaml
+    hooks:
+      post-test:
+        - name: "Ready=False por httproute"
+          run: |
+            c=$(yq eval-all 'select(.kind == "WebAppV2") | .status.conditions[] | select(.type == "Ready")' '{{ .Outputs.Render }}')
+            echo "$c"
+            test "$(echo "$c" | yq .status)" = False
+            echo "$c" | yq .message | grep -q httproute

@@ -71,3 +71,26 @@ if have crossplane "${CROSSPLANE_CLI_VERSION}"; then ok "crossplane CLI ${CROSSP
   tar -xzf "${TMP}/crossplane.tgz" -C "${TMP}/xp.d"
   install -m 0755 "${TMP}/xp.d/crossplane" "${BIN_DIR}/crossplane"; mark crossplane "${CROSSPLANE_CLI_VERSION}"
 fi
+
+# xprin (tests de Compositions) y xprin-helpers (convierte Claims en XR).
+for tool in xprin xprin-helpers; do
+  if have "${tool}" "${XPRIN_VERSION}"; then ok "${tool} ${XPRIN_VERSION} (ya instalado)"; else
+    url="https://github.com/crossplane-contrib/xprin/releases/download/${XPRIN_VERSION}/${tool}_linux_${ARCH}.tar.gz"
+    fetch "$url" "${TMP}/${tool}.tgz"
+    verify "${TMP}/${tool}.tgz" "$(curl -fsSL "${url}.sha256" | awk '{print $1}')"
+    mkdir -p "${TMP}/${tool}.d"
+    tar -xzf "${TMP}/${tool}.tgz" -C "${TMP}/${tool}.d"
+    install -m 0755 "$(find "${TMP}/${tool}.d" -type f ! -name '*.sha256' -name 'xprin*' | head -n1)" "${BIN_DIR}/${tool}"
+    mark "${tool}" "${XPRIN_VERSION}"
+  fi
+done
+
+if have yq "${YQ_VERSION}"; then ok "yq ${YQ_VERSION} (ya instalado)"; else
+  base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
+  fetch "${base}/yq_linux_${ARCH}" "${TMP}/yq"
+  # El archivo "checksums" trae muchos algoritmos por línea; la columna del
+  # SHA-256 es (línea de "SHA-256" en checksums_hashes_order) + 1.
+  column=$(($(curl -fsSL "${base}/checksums_hashes_order" | grep -nx 'SHA-256' | cut -d: -f1) + 1))
+  verify "${TMP}/yq" "$(curl -fsSL "${base}/checksums" | awk -v f="yq_linux_${ARCH}" -v c="${column}" '$1 == f {print $c}')"
+  install -m 0755 "${TMP}/yq" "${BIN_DIR}/yq"; mark yq "${YQ_VERSION}"
+fi

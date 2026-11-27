@@ -18,7 +18,7 @@ else
 fi
 
 step "Herramientas fijadas en ./.bin"
-for tool in kind kubectl helm subctl crossplane; do
+for tool in kind kubectl helm subctl crossplane xprin xprin-helpers yq; do
   if [[ -x "${BIN_DIR}/${tool}" ]]; then
     ok "${tool} $(cat "${BIN_DIR}/.${tool}.version" 2>/dev/null)"
   else

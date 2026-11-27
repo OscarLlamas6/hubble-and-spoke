@@ -1,0 +1,68 @@
+# =============================================================================
+# Estado observado SIMULADO: los 5 recursos ya existen y están Ready.
+# render empareja cada uno por la anotación composition-resource-name.
+# =============================================================================
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: observed-remote-namespace
+  annotations:
+    crossplane.io/composition-resource-name: remote-namespace
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+---
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: observed-deployment
+  annotations:
+    crossplane.io/composition-resource-name: deployment
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+---
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: observed-service
+  annotations:
+    crossplane.io/composition-resource-name: service
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+---
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: observed-service-export
+  annotations:
+    crossplane.io/composition-resource-name: service-export
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"
+---
+apiVersion: kubernetes.crossplane.io/v1alpha2
+kind: Object
+metadata:
+  name: observed-httproute
+  annotations:
+    crossplane.io/composition-resource-name: httproute
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Available
+      lastTransitionTime: "2024-01-01T00:00:00Z"

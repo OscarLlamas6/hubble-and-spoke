@@ -1,0 +1,28 @@
+# =============================================================================
+# Gateway: UNA INSTANCIA de punto de entrada (rol: operador del clúster)
+# -----------------------------------------------------------------------------
+# Al crearlo, Envoy Gateway despliega un Deployment + Service de Envoy en
+# envoy-gateway-system. Cada `listener` se convierte en un Listener xDS (LDS).
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  # Nombre y namespace referenciados por la Composition (parentRefs).
+  name: hub-gateway
+  namespace: gateway-system
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      # Quién puede colgar HTTPRoutes de este listener. "All" es cómodo para el
+      # lab; en producción usarías `from: Selector` por labels de namespace.
+      allowedRoutes:
+        namespaces:
+          from: All

@@ -58,3 +58,8 @@ tasks:
   crossplane:render:
     desc: "[fase 4] Renderiza el pipeline en local (sin clúster)"
     cmd: ./scripts/render.sh {{.CLI_ARGS}}
+
+  # --- Fase 5: Gateway API + Envoy -------------------------------------------
+  gateway:
+    desc: "[fase 5] Envoy Gateway, GatewayClass y Gateway"
+    cmd: ./scripts/gateway.sh

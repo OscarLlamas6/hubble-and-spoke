@@ -1,0 +1,37 @@
+# =============================================================================
+# EnvoyProxy: CÓMO debe desplegar Envoy Gateway el data plane
+# -----------------------------------------------------------------------------
+# CRD propio de Envoy Gateway (no es parte de Gateway API). La GatewayClass lo
+# referencia en `parametersRef`.
+#
+# Por qué NodePort: kind no tiene balanceadores de nube, así que un Service
+# LoadBalancer quedaría en <pending> para siempre. Fijamos el nodePort 30080,
+# que clusters/kind-hub.yaml publica en tu máquina:
+#
+#   localhost:8080 → nodo:30080 → Service de Envoy:80 → pod Envoy:10080
+#
+# Elegimos port-mapping en vez de `kubectl port-forward` porque es permanente,
+# no necesita un proceso abierto y recorre el datapath real del Service.
+# =============================================================================
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: nodeport
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: 1
+      envoyService:
+        type: NodePort
+        externalTrafficPolicy: Cluster
+        # Parche sobre el Service generado para fijar el nodePort.
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - port: 80
+                  nodePort: 30080

@@ -1,0 +1,16 @@
+# =============================================================================
+# Claim mínimo: solo `image`
+# -----------------------------------------------------------------------------
+# Demuestra los defaults del XRD (replicas=1, port=80) y la lógica del PASO 2
+# del pipeline: sin `hostname`, se publica como hello.apps.lab.local
+#
+#   task example:apply FILE=crossplane/examples/webapp-claim-minimal.yaml
+#   curl -H 'Host: hello.apps.lab.local' http://localhost:8080/
+# =============================================================================
+apiVersion: platform.lab.local/v1alpha1
+kind: WebApp
+metadata:
+  name: hello
+  namespace: demo
+spec:
+  image: traefik/whoami:v1.11.0

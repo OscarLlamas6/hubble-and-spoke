@@ -1,0 +1,17 @@
+# =============================================================================
+# SOLO PARA `task crossplane:render` (no se aplica a ningún clúster)
+# Simula el XR que Crossplane crearía a partir de webapp-claim.yaml, con las
+# labels crossplane.io/claim-* que usa la Composition.
+# =============================================================================
+apiVersion: platform.lab.local/v1alpha1
+kind: XWebApp
+metadata:
+  name: webapp-render
+  labels:
+    crossplane.io/claim-name: webapp
+    crossplane.io/claim-namespace: demo
+spec:
+  image: traefik/whoami:v1.11.0
+  replicas: 2
+  port: 80
+  # sin hostname a propósito: se ve el default calculado por el PASO 2

@@ -20,6 +20,17 @@ spec:
   serviceAccountTemplate:
     metadata:
       name: provider-kubernetes
+  # Cada cuánto el provider vuelve a OBSERVAR cada objeto. El default es 10m:
+  # en un lab eso hace que "Ready" y la corrección de drift parezcan colgados.
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+              args:
+                - --poll=20s
 ---
 apiVersion: pkg.crossplane.io/v1
 kind: Provider

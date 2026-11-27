@@ -1,0 +1,33 @@
+# =============================================================================
+# EL ÚNICO YAML que escribe el consumidor de la plataforma
+# -----------------------------------------------------------------------------
+# Esto es un CLAIM (`WebApp`), no el XR (`XWebApp`):
+#
+#   - Es namespaced: se le puede dar RBAC por equipo ("el equipo demo puede
+#     crear WebApps en su namespace") sin permisos cluster-scoped.
+#   - Oculta la implementación: el consumidor no sabe de Submariner, Envoy,
+#     ProviderConfigs ni del segundo clúster.
+#   - Al aplicarlo, Crossplane crea un XWebApp cluster-scoped llamado
+#     webapp-<sufijo>, que es quien gestiona los recursos compuestos.
+#
+#   kubectl -n demo get webapp          # el claim
+#   kubectl get xwebapp                 # el XR que se creó por detrás
+#
+# Pruébalo:  task example:apply && task test
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: platform.lab.local/v1alpha1
+kind: WebApp
+metadata:
+  # Se usa como nombre del Deployment, Service, ServiceExport y HTTPRoute.
+  name: webapp
+  namespace: demo
+spec:
+  image: traefik/whoami:v1.11.0   # responde con datos del pod y de la petición
+  replicas: 2
+  port: 80
+  hostname: webapp.local          # opcional (ver webapp-claim-minimal.yaml)

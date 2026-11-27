@@ -49,3 +49,12 @@ tasks:
   crossplane:
     desc: "[fase 3] Crossplane, provider-kubernetes, functions y ProviderConfigs"
     cmd: ./scripts/crossplane.sh
+
+  # --- Fase 4: API WebApp ----------------------------------------------------
+  api:
+    desc: "[fase 4] Aplica el XRD y la Composition de WebApp"
+    cmd: ./scripts/webapp-api.sh
+
+  crossplane:render:
+    desc: "[fase 4] Renderiza el pipeline en local (sin clúster)"
+    cmd: ./scripts/render.sh {{.CLI_ARGS}}

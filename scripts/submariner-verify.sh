@@ -16,6 +16,10 @@ trap cleanup EXIT
 
 step "Desplegando whoami exportado en ${REMOTE_CLUSTER}"
 for ctx in "${HUB_CTX}" "${REMOTE_CTX}"; do
+  # Si una ejecución anterior lo está borrando, esperamos a que termine.
+  if [[ "$(kubectl --context "$ctx" get namespace "$NS" -o jsonpath='{.status.phase}' 2>/dev/null)" == Terminating ]]; then
+    kubectl --context "$ctx" wait --for=delete "namespace/$NS" --timeout=180s
+  fi
   kubectl --context "$ctx" create namespace "$NS" --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
 done
 kremote apply -f "${ROOT_DIR}/submariner/connectivity-test.yaml"
@@ -27,6 +31,7 @@ khub -n "$NS" get serviceimport whoami
 khub -n "$NS" get endpointslices -l multicluster.kubernetes.io/service-name=whoami
 
 step "curl desde un pod de ${HUB_CLUSTER} a whoami.${NS}.svc.clusterset.local"
+khub -n "$NS" delete pod curl --ignore-not-found --wait=true >/dev/null
 khub -n "$NS" run curl --image=curlimages/curl:8.17.0 --restart=Never --command -- sleep 300 >/dev/null
 khub -n "$NS" wait --for=condition=Ready pod/curl --timeout=180s >/dev/null
 # Justo después del join, CoreDNS está recargando la zona clusterset.local y una

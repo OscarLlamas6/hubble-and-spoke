@@ -1,0 +1,8 @@
+# Entrada INVÁLIDA a propósito: falta spec.image
+apiVersion: platform.lab.local/v1alpha1
+kind: WebAppV2
+metadata:
+  name: sin-imagen
+  namespace: demo-v2
+spec:
+  replicas: 1

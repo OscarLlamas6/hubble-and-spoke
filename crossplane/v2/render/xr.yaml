@@ -1,0 +1,11 @@
+# SOLO PARA `task crossplane:render:v2`. A diferencia de v1, el archivo de
+# entrada es igual a lo que aplicarías: no hay que simular labels de claim.
+apiVersion: platform.lab.local/v1alpha1
+kind: WebAppV2
+metadata:
+  name: webapp
+  namespace: demo-v2
+spec:
+  image: traefik/whoami:v1.11.0
+  replicas: 2
+  port: 80

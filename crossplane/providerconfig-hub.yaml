@@ -1,0 +1,15 @@
+# =============================================================================
+# ProviderConfig "hub": el mismo clúster donde corre Crossplane
+# -----------------------------------------------------------------------------
+# InjectedIdentity = usar el ServiceAccount del propio pod del provider.
+# No hay kubeconfig ni secretos. Sus permisos son los del ClusterRole
+# definido en provider-kubernetes.yaml.
+# Lo usa la Composition para crear el HTTPRoute (y su namespace) en hub.
+# =============================================================================
+apiVersion: kubernetes.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: hub
+spec:
+  credentials:
+    source: InjectedIdentity

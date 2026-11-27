@@ -1,0 +1,9 @@
+# Entrada INVÁLIDA a propósito: el XRD limita replicas a 5.
+apiVersion: platform.lab.local/v1alpha1
+kind: WebApp
+metadata:
+  name: invalido
+  namespace: demo
+spec:
+  image: traefik/whoami:v1.11.0
+  replicas: 50

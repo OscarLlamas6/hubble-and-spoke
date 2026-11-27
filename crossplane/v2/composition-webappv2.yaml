@@ -1,0 +1,232 @@
+# =============================================================================
+# Composition para la API v2 (XR namespaced, sin claims)
+# -----------------------------------------------------------------------------
+# Produce los mismos 5 recursos que ../composition-webapp.yaml. Lo que cambia:
+#
+#   1. Identidad: sale de metadata.name / metadata.namespace del propio XR
+#      (en v1 salía de las labels crossplane.io/claim-*).
+#   2. Managed resources NAMESPACED: grupo kubernetes.m.crossplane.io (la "m"
+#      es de "modern"). Viven en el namespace del XR y eligen su configuración
+#      con providerConfigRef {kind, name}.
+#   3. Sin deletionPolicy: en los recursos modernos se usa managementPolicies.
+#   4. El HTTPRoute se compone DIRECTAMENTE, sin envoltorio Object: Crossplane
+#      v2 puede componer cualquier recurso de Kubernetes de su propio clúster.
+#      A cambio hay que (a) darle RBAC (rbac-httproute.yaml) y (b) calcular su
+#      Ready en la plantilla, porque un HTTPRoute no tiene condición Ready.
+#
+# provider-kubernetes sigue siendo necesario para REMOTE: "componer cualquier
+# recurso" se refiere al clúster donde corre Crossplane, no a otros.
+#
+# Crossplane ignora metadata.namespace en recursos compuestos por un XR
+# namespaced: SIEMPRE quedan en el namespace del XR.
+# =============================================================================
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: webappv2-multicluster
+spec:
+  compositeTypeRef:
+    apiVersion: platform.lab.local/v1alpha1
+    kind: WebAppV2
+  mode: Pipeline
+  pipeline:
+
+    # =========================================================================
+    # PASO 1 — los 4 recursos que van a REMOTE, envueltos en Object
+    # =========================================================================
+    - step: remote-resources
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        patchSets:
+          # Nombre y namespace del objeto REAL en remote = los del XR.
+          - name: identity
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.forProvider.manifest.metadata.name
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.manifest.metadata.namespace
+        resources:
+          - name: remote-namespace
+            base:
+              apiVersion: kubernetes.m.crossplane.io/v1alpha1
+              kind: Object
+              spec:
+                providerConfigRef: { kind: ClusterProviderConfig, name: remote }
+                # Equivalente al `deletionPolicy: Orphan` de v1: todo menos
+                # "Delete". Borrar el XR no borra el namespace compartido.
+                managementPolicies: [Observe, Create, Update, LateInitialize]
+                forProvider:
+                  manifest:
+                    apiVersion: v1
+                    kind: Namespace
+                    metadata: {}
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.namespace
+                toFieldPath: spec.forProvider.manifest.metadata.name
+
+          - name: deployment
+            base:
+              apiVersion: kubernetes.m.crossplane.io/v1alpha1
+              kind: Object
+              spec:
+                providerConfigRef: { kind: ClusterProviderConfig, name: remote }
+                readiness:
+                  policy: DeriveFromCelQuery
+                  celQuery: >-
+                    has(object.status) && has(object.status.availableReplicas) &&
+                    object.status.availableReplicas >= object.spec.replicas
+                forProvider:
+                  manifest:
+                    apiVersion: apps/v1
+                    kind: Deployment
+                    metadata: {}
+                    spec:
+                      selector:
+                        matchLabels: {}
+                      template:
+                        metadata:
+                          labels: {}
+                        spec:
+                          containers:
+                            - name: app
+                              ports:
+                                - name: http
+                                  containerPort: 80
+                              readinessProbe:
+                                tcpSocket: { port: http }
+                              resources:
+                                requests: { cpu: 10m, memory: 16Mi }
+                                limits: { memory: 128Mi }
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.forProvider.manifest.spec.selector.matchLabels[app.kubernetes.io/name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.forProvider.manifest.spec.template.metadata.labels[app.kubernetes.io/name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.image
+                toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].image
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.replicas
+                toFieldPath: spec.forProvider.manifest.spec.replicas
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.port
+                toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].ports[0].containerPort
+
+          - name: service
+            base:
+              apiVersion: kubernetes.m.crossplane.io/v1alpha1
+              kind: Object
+              spec:
+                providerConfigRef: { kind: ClusterProviderConfig, name: remote }
+                forProvider:
+                  manifest:
+                    apiVersion: v1
+                    kind: Service
+                    metadata: {}
+                    spec:
+                      selector: {}
+                      ports:
+                        - name: http
+                          protocol: TCP
+                          port: 80
+                          targetPort: http
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.forProvider.manifest.spec.selector[app.kubernetes.io/name]
+
+          - name: service-export
+            base:
+              apiVersion: kubernetes.m.crossplane.io/v1alpha1
+              kind: Object
+              spec:
+                providerConfigRef: { kind: ClusterProviderConfig, name: remote }
+                readiness:
+                  policy: DeriveFromObject
+                forProvider:
+                  manifest:
+                    apiVersion: multicluster.x-k8s.io/v1alpha1
+                    kind: ServiceExport
+                    metadata: {}
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+
+    # =========================================================================
+    # PASO 2 — HTTPRoute DIRECTO (sin Object), su Ready y el status del XR
+    # =========================================================================
+    - step: route-and-status
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $xr := .observed.composite.resource }}
+            {{- $name := $xr.metadata.name }}
+            {{- $namespace := $xr.metadata.namespace }}
+            {{- $hostname := dig "spec" "hostname" "" $xr | default (printf "%s.v2.apps.lab.local" $name) }}
+
+            {{- /* Leer el nombre del Service que generó el paso 1 */}}
+            {{- $svc := (index .desired.resources "service").resource.spec.forProvider.manifest }}
+
+            {{- /* Ready del HTTPRoute: en v1 lo hacía una consulta CEL en el Object */}}
+            {{- $ready := "False" }}
+            {{- with (index (default (dict) .observed.resources) "httproute") }}
+              {{- range (dig "status" "parents" (list) .resource) }}
+                {{- $ok := dict }}
+                {{- range .conditions }}{{- $_ := set $ok .type .status }}{{- end }}
+                {{- if and (eq (get $ok "Accepted") "True") (eq (get $ok "ResolvedRefs") "True") }}
+                  {{- $ready = "True" }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+            ---
+            apiVersion: gateway.networking.k8s.io/v1
+            kind: HTTPRoute
+            metadata:
+              name: {{ $name }}
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: httproute
+                gotemplating.fn.crossplane.io/ready: {{ $ready | quote }}
+            spec:
+              hostnames:
+                - {{ $hostname | quote }}
+              parentRefs:
+                - name: hub-gateway
+                  namespace: gateway-system
+              rules:
+                - matches:
+                    - path: { type: PathPrefix, value: / }
+                  backendRefs:
+                    - group: multicluster.x-k8s.io
+                      kind: ServiceImport
+                      name: {{ $svc.metadata.name }}
+                      port: 80
+            ---
+            apiVersion: {{ $xr.apiVersion }}
+            kind: {{ $xr.kind }}
+            status:
+              hostname: {{ $hostname | quote }}
+              clusterSetDNS: {{ printf "%s.%s.svc.clusterset.local" $svc.metadata.name $namespace | quote }}
+
+    # =========================================================================
+    # PASO 3 — Ready del XR (respeta el Ready que el paso 2 ya decidió)
+    # =========================================================================
+    - step: ready
+      functionRef:
+        name: function-auto-ready

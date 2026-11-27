@@ -1,0 +1,332 @@
+# =============================================================================
+# Composition: CÓMO se materializa un XWebApp / WebApp
+# -----------------------------------------------------------------------------
+# De un solo claim salen 5 recursos, todos envueltos en `Object`
+# (el Managed Resource de provider-kubernetes):
+#
+#   clave en el pipeline   clúster   objeto real
+#   --------------------   -------   ------------------------------------------
+#   remote-namespace       remote    Namespace (mismo nombre que el del claim)
+#   deployment             remote    Deployment
+#   service                remote    Service (ClusterIP)
+#   service-export         remote    ServiceExport  → Submariner lo publica
+#   httproute              hub       HTTPRoute → backend = ServiceImport
+#
+# MODO PIPELINE: en lugar de `spec.resources` con patches (modelo legacy,
+# eliminado en Crossplane 2.x), se encadenan Functions. Todas comparten un
+# "Desired State" que cada paso recibe, modifica y pasa al siguiente:
+#
+#   observed ─┬─► [1 patch-and-transform] ─► desired (5 recursos)
+#             ├─► [2 go-templating]       ─► lee desired del paso 1,
+#             │                              completa HTTPRoute y status
+#             └─► [3 auto-ready]          ─► marca Ready
+#
+# El pipeline se ejecuta en CADA reconciliación (no solo al crear), por eso
+# debe ser determinista: mismas entradas → misma salida.
+#
+# Probar sin clúster:  task crossplane:render
+# =============================================================================
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: webapp-multicluster
+spec:
+  # Qué tipo de XR sabe construir.
+  compositeTypeRef:
+    apiVersion: platform.lab.local/v1alpha1
+    kind: XWebApp
+  mode: Pipeline
+  pipeline:
+
+    # =========================================================================
+    # PASO 1 — function-patch-and-transform: "plantillas + copiar campos"
+    # =========================================================================
+    - step: base-resources
+      functionRef:
+        name: function-patch-and-transform   # metadata.name en functions.yaml
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+
+        # ---------------------------------------------------------------------
+        # patchSets: grupos de patches reutilizables.
+        #
+        # El claim se llama como la app y vive en un namespace. Crossplane copia
+        # esos datos al XR como labels `crossplane.io/claim-*`; de ahí salen el
+        # nombre y el namespace de los objetos reales.
+        # `fromFieldPath: Required` = si el dato no existe, NO crear el recurso.
+        # ---------------------------------------------------------------------
+        patchSets:
+          - name: identity
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                toFieldPath: spec.forProvider.manifest.metadata.name
+                policy: { fromFieldPath: Required }
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+                toFieldPath: spec.forProvider.manifest.metadata.namespace
+                policy: { fromFieldPath: Required }
+
+        resources:
+          # -------------------------------------------------------------------
+          # (a) Namespace en remote.
+          # El ServiceImport solo aparece en hub dentro del namespace homónimo,
+          # que en hub ya existe porque allí vive el claim.
+          # -------------------------------------------------------------------
+          - name: remote-namespace
+            base:
+              apiVersion: kubernetes.crossplane.io/v1alpha2
+              kind: Object
+              spec:
+                providerConfigRef: { name: remote }
+                # Orphan: al borrar el claim NO se borra el namespace, porque
+                # otros claims del mismo namespace lo comparten.
+                deletionPolicy: Orphan
+                forProvider:
+                  manifest:
+                    apiVersion: v1
+                    kind: Namespace
+                    metadata: {}
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+                toFieldPath: spec.forProvider.manifest.metadata.name
+                policy: { fromFieldPath: Required }
+
+          # -------------------------------------------------------------------
+          # (b) Deployment en remote
+          # -------------------------------------------------------------------
+          - name: deployment
+            base:
+              apiVersion: kubernetes.crossplane.io/v1alpha2
+              kind: Object
+              spec:
+                providerConfigRef: { name: remote }
+                # Por defecto un Object es "Ready" apenas se crea. Con esta
+                # consulta CEL solo lo es cuando hay réplicas disponibles.
+                readiness:
+                  policy: DeriveFromCelQuery
+                  celQuery: >-
+                    has(object.status) && has(object.status.availableReplicas) &&
+                    object.status.availableReplicas >= object.spec.replicas
+                forProvider:
+                  manifest:
+                    apiVersion: apps/v1
+                    kind: Deployment
+                    metadata: {}
+                    spec:
+                      selector:
+                        matchLabels: {}
+                      template:
+                        metadata:
+                          labels: {}
+                        spec:
+                          containers:
+                            - name: app
+                              ports:
+                                - name: http
+                                  containerPort: 80
+                              readinessProbe:
+                                tcpSocket: { port: http }
+                              resources:
+                                requests: { cpu: 10m, memory: 16Mi }
+                                limits: { memory: 128Mi }
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+              # selector y labels del pod deben coincidir: ambos del claim-name.
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                toFieldPath: spec.forProvider.manifest.spec.selector.matchLabels[app.kubernetes.io/name]
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                toFieldPath: spec.forProvider.manifest.spec.template.metadata.labels[app.kubernetes.io/name]
+              # Campos que pide el usuario:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.image
+                toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].image
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.replicas
+                toFieldPath: spec.forProvider.manifest.spec.replicas
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.port
+                toFieldPath: spec.forProvider.manifest.spec.template.spec.containers[0].ports[0].containerPort
+
+          # -------------------------------------------------------------------
+          # (c) Service ClusterIP en remote. El puerto 80 es fijo hacia fuera;
+          # targetPort "http" apunta al puerto nombrado del contenedor.
+          # -------------------------------------------------------------------
+          - name: service
+            base:
+              apiVersion: kubernetes.crossplane.io/v1alpha2
+              kind: Object
+              spec:
+                providerConfigRef: { name: remote }
+                forProvider:
+                  manifest:
+                    apiVersion: v1
+                    kind: Service
+                    metadata: {}
+                    spec:
+                      selector: {}
+                      ports:
+                        - name: http
+                          protocol: TCP
+                          port: 80
+                          targetPort: http
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                toFieldPath: spec.forProvider.manifest.spec.selector[app.kubernetes.io/name]
+              # Ejemplo de `combine` + transform `string`: varias entradas → un
+              # valor. Deja en el Service quién lo pidió (visible en remote).
+              - type: CombineFromComposite
+                combine:
+                  strategy: string
+                  variables:
+                    - fromFieldPath: metadata.labels[crossplane.io/claim-namespace]
+                    - fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                  string:
+                    fmt: "%s/%s"
+                toFieldPath: spec.forProvider.manifest.metadata.annotations[platform.lab.local/claim]
+              # Ejemplo de transform `string` de tipo Format sobre un solo campo.
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.name
+                toFieldPath: spec.forProvider.manifest.metadata.annotations[platform.lab.local/composite]
+                transforms:
+                  - type: string
+                    string:
+                      type: Format
+                      fmt: "XWebApp/%s"
+
+          # -------------------------------------------------------------------
+          # (d) ServiceExport en remote: mismo nombre y namespace que el
+          # Service. Es la señal para que Submariner lo publique al clusterset.
+          # -------------------------------------------------------------------
+          - name: service-export
+            base:
+              apiVersion: kubernetes.crossplane.io/v1alpha2
+              kind: Object
+              spec:
+                providerConfigRef: { name: remote }
+                # El ServiceExport publica una condición Ready cuando ya está
+                # sincronizado con el broker.
+                readiness:
+                  policy: DeriveFromObject
+                forProvider:
+                  manifest:
+                    apiVersion: multicluster.x-k8s.io/v1alpha1
+                    kind: ServiceExport
+                    metadata: {}
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+
+          # -------------------------------------------------------------------
+          # (e) HTTPRoute en HUB (providerConfig distinto).
+          # El backend no es un Service: es el ServiceImport que Lighthouse
+          # crea en hub. Envoy Gateway lo entiende de forma nativa.
+          # `hostnames` se completa en el PASO 2.
+          # -------------------------------------------------------------------
+          - name: httproute
+            base:
+              apiVersion: kubernetes.crossplane.io/v1alpha2
+              kind: Object
+              spec:
+                providerConfigRef: { name: hub }
+                # Ready solo si el Gateway ACEPTA la ruta y RESUELVE el backend.
+                readiness:
+                  policy: DeriveFromCelQuery
+                  celQuery: >-
+                    has(object.status) && has(object.status.parents) &&
+                    object.status.parents.exists(p,
+                    p.conditions.exists(c, c.type == "Accepted" && c.status == "True") &&
+                    p.conditions.exists(c, c.type == "ResolvedRefs" && c.status == "True"))
+                forProvider:
+                  manifest:
+                    apiVersion: gateway.networking.k8s.io/v1
+                    kind: HTTPRoute
+                    metadata: {}
+                    spec:
+                      parentRefs:
+                        # El Gateway de gateway/gateway.yaml
+                        - name: hub-gateway
+                          namespace: gateway-system
+                      rules:
+                        - matches:
+                            - path: { type: PathPrefix, value: / }
+                          backendRefs:
+                            - group: multicluster.x-k8s.io
+                              kind: ServiceImport
+                              port: 80
+            patches:
+              - type: PatchSet
+                patchSetName: identity
+              - type: FromCompositeFieldPath
+                fromFieldPath: metadata.labels[crossplane.io/claim-name]
+                toFieldPath: spec.forProvider.manifest.spec.rules[0].backendRefs[0].name
+                policy: { fromFieldPath: Required }
+
+    # =========================================================================
+    # PASO 2 — function-go-templating: lógica que patch-and-transform no expresa
+    # -------------------------------------------------------------------------
+    # "Si el usuario no dio hostname, calcúlalo": un if/else con valor por
+    # defecto derivado. Además LEE lo que produjo el paso 1 (.desired).
+    #
+    # Entradas de la plantilla:
+    #   .observed.composite.resource  → el XR tal como está en el clúster
+    #   .desired.resources            → lo acumulado por los pasos anteriores
+    # Salida: si un documento reutiliza la clave "httproute", REEMPLAZA al
+    # recurso del paso 1; por eso partimos del original y solo le añadimos algo.
+    # =========================================================================
+    - step: hostname-and-status
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |
+            {{- $baseDomain := "apps.lab.local" }}
+            {{- $xr := .observed.composite.resource }}
+            {{- $desired := .desired.resources }}
+
+            {{- /* Si el paso 1 omitió recursos (XR sin claim), no hay nada que completar */}}
+            {{- if and (hasKey $desired "service") (hasKey $desired "httproute") }}
+
+            {{- /* (1) Datos tomados del Service que generó el PASO 1 */}}
+            {{- $svc := (index $desired "service").resource.spec.forProvider.manifest }}
+            {{- $name := $svc.metadata.name }}
+            {{- $namespace := $svc.metadata.namespace }}
+
+            {{- /* (2) Hostname explícito, o <nombre>.<dominio base> */}}
+            {{- $hostname := dig "spec" "hostname" "" $xr | default (printf "%s.%s" $name $baseDomain) }}
+
+            {{- /* (3) Tomar el HTTPRoute del PASO 1 y añadirle el hostname */}}
+            {{- $route := (index $desired "httproute").resource }}
+            {{- $_ := set $route.spec.forProvider.manifest.spec "hostnames" (list $hostname) }}
+            {{- $meta := dig "metadata" (dict) $route }}
+            {{- $_ := set $meta "annotations" (dict "gotemplating.fn.crossplane.io/composition-resource-name" "httproute") }}
+            {{- $_ := set $route "metadata" $meta }}
+            ---
+            {{ toYaml $route | nindent 0 }}
+            ---
+            # (4) Un documento del mismo tipo que el XR y sin nombre de recurso
+            #     actualiza el STATUS del XR (y Crossplane lo copia al claim).
+            apiVersion: {{ $xr.apiVersion }}
+            kind: {{ $xr.kind }}
+            status:
+              hostname: {{ $hostname | quote }}
+              clusterSetDNS: {{ printf "%s.%s.svc.clusterset.local" $name $namespace | quote }}
+            {{- end }}
+
+    # =========================================================================
+    # PASO 3 — function-auto-ready: el XR es Ready cuando todos lo son
+    # =========================================================================
+    - step: ready
+      functionRef:
+        name: function-auto-ready

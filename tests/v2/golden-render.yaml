@@ -1,0 +1,236 @@
+---
+apiVersion: platform.lab.local/v1alpha1
+kind: WebAppV2
+metadata:
+  name: webapp
+  namespace: demo-v2
+spec:
+  crossplane:
+    resourceRefs:
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      name: webapp
+    - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+      kind: Object
+      name: webapp-02886e827499
+    - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+      kind: Object
+      name: webapp-20be23e2ecaf
+    - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+      kind: Object
+      name: webapp-8e075a23f884
+    - apiVersion: kubernetes.m.crossplane.io/v1alpha1
+      kind: Object
+      name: webapp-bdfb72f0832f
+  image: traefik/whoami:v1.11.0
+  port: 80
+  replicas: 2
+status:
+  clusterSetDNS: webapp.demo-v2.svc.clusterset.local
+  conditions:
+  - lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: WatchCircuitClosed
+    status: "True"
+    type: Responsive
+  - lastTransitionTime: "2024-01-01T00:00:00Z"
+    reason: ReconcileSuccess
+    status: "True"
+    type: Synced
+  - lastTransitionTime: "2024-01-01T00:00:00Z"
+    message: 'Unready resources: deployment, httproute, remote-namespace, and 2 more'
+    reason: Creating
+    status: "False"
+    type: Ready
+  hostname: webapp.v2.apps.lab.local
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: deployment
+  generateName: webapp-
+  labels:
+    crossplane.io/composite: webapp
+  name: webapp-02886e827499
+  namespace: demo-v2
+  ownerReferences:
+  - apiVersion: platform.lab.local/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebAppV2
+    name: webapp
+    uid: 270cb430-1903-5793-9ad4-ab2be48cb864
+spec:
+  forProvider:
+    manifest:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: webapp
+        namespace: demo-v2
+      spec:
+        replicas: 2
+        selector:
+          matchLabels:
+            app.kubernetes.io/name: webapp
+        template:
+          metadata:
+            labels:
+              app.kubernetes.io/name: webapp
+          spec:
+            containers:
+            - image: traefik/whoami:v1.11.0
+              name: app
+              ports:
+              - containerPort: 80
+                name: http
+              readinessProbe:
+                tcpSocket:
+                  port: http
+              resources:
+                limits:
+                  memory: 128Mi
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: remote
+  readiness:
+    celQuery: has(object.status) && has(object.status.availableReplicas) && object.status.availableReplicas
+      >= object.spec.replicas
+    policy: DeriveFromCelQuery
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: httproute
+  labels:
+    crossplane.io/composite: webapp
+  name: webapp
+  namespace: demo-v2
+  ownerReferences:
+  - apiVersion: platform.lab.local/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebAppV2
+    name: webapp
+    uid: 270cb430-1903-5793-9ad4-ab2be48cb864
+spec:
+  hostnames:
+  - webapp.v2.apps.lab.local
+  parentRefs:
+  - name: hub-gateway
+    namespace: gateway-system
+  rules:
+  - backendRefs:
+    - group: multicluster.x-k8s.io
+      kind: ServiceImport
+      name: webapp
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: remote-namespace
+  generateName: webapp-
+  labels:
+    crossplane.io/composite: webapp
+  name: webapp-20be23e2ecaf
+  namespace: demo-v2
+  ownerReferences:
+  - apiVersion: platform.lab.local/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebAppV2
+    name: webapp
+    uid: 270cb430-1903-5793-9ad4-ab2be48cb864
+spec:
+  forProvider:
+    manifest:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: demo-v2
+  managementPolicies:
+  - Observe
+  - Create
+  - Update
+  - LateInitialize
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: remote
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: service
+  generateName: webapp-
+  labels:
+    crossplane.io/composite: webapp
+  name: webapp-8e075a23f884
+  namespace: demo-v2
+  ownerReferences:
+  - apiVersion: platform.lab.local/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebAppV2
+    name: webapp
+    uid: 270cb430-1903-5793-9ad4-ab2be48cb864
+spec:
+  forProvider:
+    manifest:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: webapp
+        namespace: demo-v2
+      spec:
+        ports:
+        - name: http
+          port: 80
+          protocol: TCP
+          targetPort: http
+        selector:
+          app.kubernetes.io/name: webapp
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: remote
+---
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  annotations:
+    crossplane.io/composition-resource-name: service-export
+  generateName: webapp-
+  labels:
+    crossplane.io/composite: webapp
+  name: webapp-bdfb72f0832f
+  namespace: demo-v2
+  ownerReferences:
+  - apiVersion: platform.lab.local/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: WebAppV2
+    name: webapp
+    uid: 270cb430-1903-5793-9ad4-ab2be48cb864
+spec:
+  forProvider:
+    manifest:
+      apiVersion: multicluster.x-k8s.io/v1alpha1
+      kind: ServiceExport
+      metadata:
+        name: webapp
+        namespace: demo-v2
+  providerConfigRef:
+    kind: ClusterProviderConfig
+    name: remote
+  readiness:
+    policy: DeriveFromObject

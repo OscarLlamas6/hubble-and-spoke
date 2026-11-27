@@ -1,0 +1,86 @@
+# =============================================================================
+# CompositeResourceDefinition (XRD): DEFINE una API nueva en el clúster hub
+# -----------------------------------------------------------------------------
+# Al aplicarlo, Crossplane genera DOS CRDs:
+#
+#   XWebApp  (cluster-scoped)  = Composite Resource (XR). Lo gestiona Crossplane.
+#   WebApp   (namespaced)      = Claim. Lo que aplica el equipo consumidor.
+#
+# El XRD solo describe el CONTRATO (qué campos puede pedir el usuario).
+# CÓMO se cumple lo decide la Composition (composition-webapp.yaml).
+#
+# Por qué `apiextensions.crossplane.io/v1` en Crossplane 2.x: los Claims solo
+# existen en XRDs v1 (los XR resultantes quedan en modo "LegacyCluster").
+# El modelo v2 usa XRs con namespace y sin claims. Comparación completa en
+# docs/concepts/03-crossplane-claims.md. `kubectl` mostrará un aviso de
+# deprecación al aplicar este archivo: es esperado.
+# =============================================================================
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  # Obligatorio: <plural>.<group>
+  name: xwebapps.platform.lab.local
+spec:
+  group: platform.lab.local
+  names:
+    kind: XWebApp
+    plural: xwebapps
+  # La presencia de claimNames es lo que habilita el Claim.
+  claimNames:
+    kind: WebApp
+    plural: webapps
+  # Composition usada si el claim no elige una explícitamente.
+  defaultCompositionRef:
+    name: webapp-multicluster
+  versions:
+    - name: v1alpha1
+      served: true          # el API server la expone
+      referenceable: true   # las Compositions apuntan a esta versión
+      # Columnas extra para `kubectl get webapp`
+      additionalPrinterColumns:
+        - name: HOSTNAME
+          type: string
+          jsonPath: .status.hostname
+        - name: IMAGE
+          type: string
+          jsonPath: .spec.image
+          priority: 1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  description: Imagen de contenedor de la aplicación (con tag).
+                replicas:
+                  type: integer
+                  description: Número de réplicas en el clúster remote.
+                  default: 1
+                  minimum: 1
+                  maximum: 5
+                port:
+                  type: integer
+                  description: Puerto HTTP en el que escucha el contenedor.
+                  default: 80
+                  minimum: 1
+                  maximum: 65535
+                hostname:
+                  type: string
+                  description: >-
+                    Hostname que enruta el Gateway. Si se omite se calcula como
+                    <nombre-del-claim>.apps.lab.local
+                  pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+            # status lo ESCRIBE la Composition (paso 2); el usuario solo lo lee.
+            status:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                  description: Hostname efectivo publicado en el Gateway.
+                clusterSetDNS:
+                  type: string
+                  description: Nombre DNS multi-clúster del Service.

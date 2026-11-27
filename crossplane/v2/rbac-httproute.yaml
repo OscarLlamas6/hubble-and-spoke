@@ -1,0 +1,20 @@
+# =============================================================================
+# RBAC para que Crossplane CORE componga HTTPRoutes directamente
+# -----------------------------------------------------------------------------
+# Crossplane ya tiene permisos sobre los managed resources y XRs que él mismo
+# gestiona. Para cualquier otro tipo hay que concedérselos. La label hace que
+# este ClusterRole se agregue al rol del pod `crossplane`.
+#
+# Contraste con v1: allí el permiso se daba al ServiceAccount del PROVIDER
+# (provider-kubernetes.yaml), porque era el provider quien creaba la ruta.
+# =============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crossplane-compose-httproutes
+  labels:
+    rbac.crossplane.io/aggregate-to-crossplane: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

@@ -1,0 +1,144 @@
+# =============================================================================
+# Taskfile — interfaz única del laboratorio (https://taskfile.dev)
+# -----------------------------------------------------------------------------
+#   task            lista los comandos
+#   task up         levanta TODO desde cero
+#   task test       prueba de punta a punta
+#   task down       destruye todo
+#
+# Cada task delega en un script de scripts/ — ábrelo para ver los comandos
+# reales y la explicación de cada paso. Los scripts son idempotentes.
+# =============================================================================
+version: "3"
+
+# La salida de cada script se muestra tal cual; no repetimos el comando.
+silent: true
+
+tasks:
+  default:
+    desc: Lista los comandos disponibles
+    cmd: task --list
+
+  # --- Ciclo de vida completo ------------------------------------------------
+  up:
+    desc: Levanta TODO el laboratorio desde cero (idempotente)
+    cmds:
+      # `task:` en orden estricto. (`deps:` los correría en paralelo.)
+      - task: check-deps
+      - task: clusters
+      - task: submariner
+      - task: crossplane
+      - task: api
+      - task: gateway
+      - task: example:apply
+      - task: example:apply:v2
+      - echo "Listo. Prueba con 'task test' o abre el recorrido 3D con 'task tour'."
+
+  down:
+    desc: Destruye los clústeres y artefactos (PURGE=1 borra también .bin)
+    cmd: ./scripts/down.sh
+
+  # --- Fase 0: prerrequisitos ------------------------------------------------
+  tools:
+    desc: "[fase 0] Descarga las CLIs fijadas en ./.bin"
+    cmd: ./scripts/tools.sh
+
+  check-deps:
+    desc: "[fase 0] Verifica prerrequisitos de la máquina"
+    deps: [tools]
+    cmd: ./scripts/check-deps.sh
+
+  # --- Fase 1: clústeres -----------------------------------------------------
+  clusters:
+    desc: "[fase 1] Crea los clústeres kind hub y remote"
+    cmd: ./scripts/clusters.sh
+
+  # --- Fase 2: Submariner ----------------------------------------------------
+  submariner:
+    desc: "[fase 2] Broker en hub y join de ambos clústeres"
+    cmd: ./scripts/submariner.sh
+
+  submariner:verify:
+    desc: "[fase 2] Prueba cross-cluster (KEEP=1 conserva los recursos)"
+    cmd: ./scripts/submariner-verify.sh
+
+  submariner:status:
+    desc: "[fase 2] subctl show all"
+    cmd: ./scripts/run.sh subctl show all
+
+  # --- Fase 3: Crossplane ----------------------------------------------------
+  crossplane:
+    desc: "[fase 3] Crossplane, provider-kubernetes, functions y ProviderConfigs"
+    cmd: ./scripts/crossplane.sh
+
+  # --- Fase 4: API WebApp ----------------------------------------------------
+  api:
+    desc: "[fase 4] Aplica XRD y Composition de las dos APIs (v1 y v2)"
+    cmd: ./scripts/webapp-api.sh
+
+  crossplane:render:
+    desc: "[fase 4] Renderiza el pipeline v1 en local (sin clúster)"
+    cmd: ./scripts/render.sh v1 {{.CLI_ARGS}}
+
+  crossplane:render:v2:
+    desc: "[fase 4] Renderiza el pipeline v2 en local (sin clúster)"
+    cmd: ./scripts/render.sh v2 {{.CLI_ARGS}}
+
+  # --- Fase 5: Gateway API + Envoy -------------------------------------------
+  gateway:
+    desc: "[fase 5] Envoy Gateway, GatewayClass y Gateway"
+    cmd: ./scripts/gateway.sh
+
+  # --- Fase 6: integración ---------------------------------------------------
+  example:apply:
+    desc: "[fase 6] Aplica un claim WebApp (FILE=ruta opcional)"
+    cmd: ./scripts/example.sh apply {{.FILE}}
+
+  example:delete:
+    desc: "[fase 6] Borra el claim (y con él todo lo compuesto)"
+    cmd: ./scripts/example.sh delete {{.FILE}}
+
+  example:apply:v2:
+    desc: "[fase 6] Aplica el XR v2 de ejemplo (sin claim)"
+    cmd: ./scripts/example.sh apply crossplane/v2/examples/webappv2.yaml
+
+  example:delete:v2:
+    desc: "[fase 6] Borra el XR v2 de ejemplo"
+    cmd: ./scripts/example.sh delete crossplane/v2/examples/webappv2.yaml
+
+  test:
+    desc: "[fase 6] Smoke test de punta a punta de ambas APIs"
+    cmds:
+      - task: test:v1
+      - task: test:v2
+
+  test:unit:
+    desc: "Tests de las Compositions con xprin, sin clúster (task test:unit -- tests/v2/...)"
+    deps: [tools]
+    cmd: ./scripts/unit-test.sh {{.CLI_ARGS}}
+
+  test:unit:update-goldens:
+    desc: "Regenera las salidas de referencia de xprin (revisa el diff después)"
+    deps: [tools]
+    cmd: XPRIN_COMMAND=update-goldens ./scripts/unit-test.sh {{.CLI_ARGS}}
+
+  test:v1:
+    desc: "[fase 6] Smoke test del WebApp (claim v1)"
+    cmd: ./scripts/smoke-test.sh
+
+  test:v2:
+    desc: "[fase 6] Smoke test del WebAppV2 (XR v2)"
+    cmd: HOST=webapp-v2.local NS=demo-v2 ./scripts/smoke-test.sh
+
+  status:
+    desc: Estado de todo el flujo en ambos clústeres
+    cmd: ./scripts/status.sh
+
+  xds:
+    desc: "[fase 5] Config efectiva de Envoy: LDS/RDS/CDS/EDS (task xds -- raw)"
+    cmd: ./scripts/xds.sh {{.CLI_ARGS}}
+
+  # --- Documentación ---------------------------------------------------------
+  tour:
+    desc: Sirve el recorrido 3D en http://localhost:8000 (Ctrl+C para salir)
+    cmd: python3 -m http.server {{.PORT | default "8000"}} --bind 127.0.0.1 --directory tour

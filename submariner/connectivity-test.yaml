@@ -1,0 +1,47 @@
+# =============================================================================
+# Prueba manual de conectividad cross-cluster (FASE 2)
+# -----------------------------------------------------------------------------
+# Se aplica en "remote". Despliega un whoami y lo EXPORTA; después, un pod en
+# "hub" debe poder llamarlo por DNS multi-clúster.
+# La usa scripts/submariner-verify.sh, que además crea el namespace en ambos
+# clústeres (el ServiceImport solo es visible donde existe el mismo namespace).
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+  namespace: sm-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: whoami }
+  template:
+    metadata:
+      labels: { app: whoami }
+    spec:
+      containers:
+        - name: whoami
+          image: traefik/whoami:v1.11.0
+          ports:
+            - containerPort: 80
+---
+# Service ClusterIP normal. Submariner no requiere nada especial aquí.
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+  namespace: sm-test
+spec:
+  selector: { app: whoami }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+# La "bandera" de la API Multi-Cluster Services (MCS): "este Service, con este
+# mismo nombre y namespace, debe ser visible para todo el clusterset".
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: whoami
+  namespace: sm-test

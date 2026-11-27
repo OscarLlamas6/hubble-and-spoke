@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>hubble-and-spoke · recorrido 3D</title>
+  <meta name="description" content="Crossplane, Gateway API, Envoy y Submariner explicados en 3D, paso a paso." />
+  <link rel="stylesheet" href="./style.css" />
+  <!-- Sin build: Three.js se importa desde un CDN con versión fija. -->
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <main id="stage" aria-label="Escena 3D de los dos clústeres">
+    <header>
+      <h1>hubble-and-spoke</h1>
+      <p>Un YAML en <b class="hub">hub</b> → una app en <b class="remote">remote</b></p>
+    </header>
+    <ul id="legend">
+      <li><i style="--c:#c084fc"></i>aprovisionar</li>
+      <li><i style="--c:#fbbf24"></i>descubrir</li>
+      <li><i style="--c:#38bdf8"></i>configurar (xDS)</li>
+      <li><i style="--c:#f472b6"></i>petición</li>
+    </ul>
+    <p id="hint">Arrastra para girar · rueda para zoom · clic en un componente</p>
+    <p id="nowebgl" hidden>No se pudo cargar la escena 3D (WebGL o CDN no disponibles). El texto del recorrido sigue funcionando.</p>
+  </main>
+
+  <aside id="panel">
+    <nav id="dots" aria-label="Pasos del recorrido"></nav>
+    <article id="card" aria-live="polite"></article>
+    <div id="controls">
+      <button id="prev" type="button">← Anterior</button>
+      <button id="play" type="button" aria-pressed="false">▶ Auto</button>
+      <button id="next" type="button">Siguiente →</button>
+    </div>
+  </aside>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

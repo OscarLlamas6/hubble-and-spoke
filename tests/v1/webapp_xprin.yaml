@@ -1,0 +1,102 @@
+# =============================================================================
+# Tests de la Composition v1 (claims) — formato xprin
+# -----------------------------------------------------------------------------
+# Por cada caso xprin: convierte el Claim en XR → aplica defaults del XRD →
+# `crossplane composition render` → `resource validate` → aserciones → hooks.
+# El nombre del archivo debe terminar en _xprin.yaml para ser descubierto.
+# =============================================================================
+common:
+  inputs:
+    composition: ../../crossplane/composition-webapp.yaml
+    functions: ../../crossplane/functions.yaml
+    # Schemas contra los que se valida la salida.
+    crds:
+      - ../../crossplane/xrd-webapp.yaml
+      - ../.cache/provider.yaml
+  patches:
+    # Aplica defaults del XRD (replicas, port) e indica que es LegacyCluster.
+    xrd: ../../crossplane/xrd-webapp.yaml
+
+tests:
+  # ---------------------------------------------------------------------------
+  - name: "claim de ejemplo: produce los 5 recursos con los valores pedidos"
+    inputs:
+      claim: ../.cache/claim.yaml
+    assertions:
+      xprin:
+        - { name: "5 Object", type: Count, resource: Object, value: 5 }
+        - { name: "ningún Deployment suelto en hub", type: NotExists, resource: Deployment }
+        - { name: "un XWebApp", type: Count, resource: XWebApp, value: 1 }
+        - name: "status.hostname respeta el del claim"
+          type: FieldValue
+          resource: XWebApp
+          field: status.hostname
+          operator: "=="
+          value: webapp.local
+        - name: "status.clusterSetDNS"
+          type: FieldValue
+          resource: XWebApp
+          field: status.clusterSetDNS
+          operator: "=="
+          value: webapp.demo.svc.clusterset.local
+    hooks:
+      post-test:
+        - name: "imagen y réplicas llegan al Deployment"
+          run: |
+            r='{{ .Outputs.Render }}'
+            ../lib/field.sh "$r" deployment .spec.forProvider.manifest.spec.replicas 2
+            ../lib/field.sh "$r" deployment .spec.forProvider.manifest.spec.template.spec.containers[0].image traefik/whoami:v1.11.0
+            ../lib/field.sh "$r" deployment .spec.providerConfigRef.name remote
+        - name: "HTTPRoute va a hub y apunta al ServiceImport"
+          run: |
+            r='{{ .Outputs.Render }}'
+            ../lib/field.sh "$r" httproute .spec.providerConfigRef.name hub
+            ../lib/field.sh "$r" httproute .spec.forProvider.manifest.spec.hostnames[0] webapp.local
+            ../lib/field.sh "$r" httproute .spec.forProvider.manifest.spec.rules[0].backendRefs[0].kind ServiceImport
+            ../lib/field.sh "$r" httproute .spec.forProvider.manifest.metadata.namespace demo
+        - name: "el namespace remoto no se borra con el claim"
+          run: ../lib/field.sh '{{ .Outputs.Render }}' remote-namespace .spec.deletionPolicy Orphan
+
+  # ---------------------------------------------------------------------------
+  - name: "claim mínimo: aplican los defaults del XRD y del paso 2"
+    inputs:
+      claim: ../../crossplane/examples/webapp-claim-minimal.yaml
+    assertions:
+      xprin:
+        - { name: "5 Object", type: Count, resource: Object, value: 5 }
+        - name: "hostname calculado por go-templating"
+          type: FieldValue
+          resource: XWebApp
+          field: status.hostname
+          operator: "=="
+          value: hello.apps.lab.local
+    hooks:
+      post-test:
+        - name: "replicas=1 y port=80 por defecto"
+          run: |
+            r='{{ .Outputs.Render }}'
+            ../lib/field.sh "$r" deployment .spec.forProvider.manifest.spec.replicas 1
+            ../lib/field.sh "$r" deployment .spec.forProvider.manifest.spec.template.spec.containers[0].ports[0].containerPort 80
+            ../lib/field.sh "$r" httproute .spec.forProvider.manifest.spec.hostnames[0] hello.apps.lab.local
+
+  # ---------------------------------------------------------------------------
+  # Caso negativo: sin las labels del claim, la política Required evita crear
+  # recursos sin nombre.
+  - name: "XR creado a mano (sin claim): no se compone nada"
+    inputs:
+      xr: xr-without-claim.yaml
+    assertions:
+      xprin:
+        - { name: "cero Object", type: Count, resource: Object, value: 0 }
+
+  # ---------------------------------------------------------------------------
+  # Simula un reconcile posterior: todo observado y listo → el XR queda Ready.
+  - name: "con todos los recursos listos, el XR queda Ready"
+    inputs:
+      claim: ../.cache/claim.yaml
+      observed-resources: observed-all-ready.yaml
+    hooks:
+      post-test:
+        - name: "condición Ready=True en el XR"
+          run: |
+            test "$(yq eval-all 'select(.kind == "XWebApp") | .status.conditions[] | select(.type == "Ready") | .status' '{{ .Outputs.Render }}')" = True

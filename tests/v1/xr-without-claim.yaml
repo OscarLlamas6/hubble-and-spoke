@@ -1,0 +1,7 @@
+# XR creado directamente, sin las labels crossplane.io/claim-*
+apiVersion: platform.lab.local/v1alpha1
+kind: XWebApp
+metadata:
+  name: huerfano
+spec:
+  image: traefik/whoami:v1.11.0

@@ -63,3 +63,20 @@ tasks:
   gateway:
     desc: "[fase 5] Envoy Gateway, GatewayClass y Gateway"
     cmd: ./scripts/gateway.sh
+
+  # --- Fase 6: integración ---------------------------------------------------
+  example:apply:
+    desc: "[fase 6] Aplica un claim WebApp (FILE=ruta opcional)"
+    cmd: ./scripts/example.sh apply {{.FILE}}
+
+  example:delete:
+    desc: "[fase 6] Borra el claim (y con él todo lo compuesto)"
+    cmd: ./scripts/example.sh delete {{.FILE}}
+
+  test:
+    desc: "[fase 6] Smoke test de punta a punta"
+    cmd: ./scripts/smoke-test.sh
+
+  status:
+    desc: Estado de todo el flujo en ambos clústeres
+    cmd: ./scripts/status.sh

@@ -1,0 +1,46 @@
+# =============================================================================
+# Taskfile — interfaz única del laboratorio (https://taskfile.dev)
+# -----------------------------------------------------------------------------
+#   task            lista los comandos
+#   task up         levanta TODO desde cero
+#   task test       prueba de punta a punta
+#   task down       destruye todo
+#
+# Cada task delega en un script de scripts/ — ábrelo para ver los comandos
+# reales y la explicación de cada paso. Los scripts son idempotentes.
+# =============================================================================
+version: "3"
+
+tasks:
+  default:
+    desc: Lista los comandos disponibles
+    cmd: task --list
+    silent: true
+
+  # --- Fase 0: prerrequisitos ------------------------------------------------
+  tools:
+    desc: "[fase 0] Descarga las CLIs fijadas en ./.bin"
+    cmd: ./scripts/tools.sh
+
+  check-deps:
+    desc: "[fase 0] Verifica prerrequisitos de la máquina"
+    deps: [tools]
+    cmd: ./scripts/check-deps.sh
+
+  # --- Fase 1: clústeres -----------------------------------------------------
+  clusters:
+    desc: "[fase 1] Crea los clústeres kind hub y remote"
+    cmd: ./scripts/clusters.sh
+
+  # --- Fase 2: Submariner ----------------------------------------------------
+  submariner:
+    desc: "[fase 2] Broker en hub y join de ambos clústeres"
+    cmd: ./scripts/submariner.sh
+
+  submariner:verify:
+    desc: "[fase 2] Prueba cross-cluster (KEEP=1 conserva los recursos)"
+    cmd: ./scripts/submariner-verify.sh
+
+  submariner:status:
+    desc: "[fase 2] subctl show all"
+    cmd: ./scripts/run.sh subctl show all

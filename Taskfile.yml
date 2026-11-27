@@ -104,3 +104,8 @@ tasks:
   xds:
     desc: "[fase 5] Config efectiva de Envoy: LDS/RDS/CDS/EDS (task xds -- raw)"
     cmd: ./scripts/xds.sh {{.CLI_ARGS}}
+
+  # --- Documentación ---------------------------------------------------------
+  tour:
+    desc: Sirve el recorrido 3D en http://localhost:8000 (Ctrl+C para salir)
+    cmd: python3 -m http.server {{.PORT | default "8000"}} --bind 127.0.0.1 --directory tour

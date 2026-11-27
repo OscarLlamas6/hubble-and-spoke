@@ -51,6 +51,7 @@ spec:
           properties:
             spec:
               type: object
+              description: Lo que pide el consumidor de la plataforma.
               required: [image]
               properties:
                 image:

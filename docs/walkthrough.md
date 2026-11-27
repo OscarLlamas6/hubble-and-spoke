@@ -121,11 +121,41 @@ watch -n1 './scripts/run.sh kubectl --context kind-hub get webapp,xwebapp,object
 ```bash
 ./scripts/run.sh crossplane resource trace webapp.platform.lab.local/webapp -n demo --context kind-hub
 task status
-task test
+task test:v1
 task xds            # ahora aparecen RDS, CDS y EDS
 ```
 
 Lee [09-envoy-xds](concepts/09-envoy-xds.md) con la salida delante.
+
+## Fase 6b — La misma plataforma en Crossplane v2
+
+Lee [22-crossplane-v2](concepts/22-crossplane-v2.md) y compara las dos Compositions lado a lado.
+
+```bash
+task crossplane:render:v2
+task example:apply:v2
+task test:v2
+./scripts/run.sh crossplane resource trace webappv2.platform.lab.local/webapp -n demo-v2 --context kind-hub
+khub get crd | grep platform.lab.local          # 2 CRDs de v1, 1 de v2
+khub -n demo-v2 get webappv2 webapp -o yaml     # mira spec.crossplane
+task xds                                        # ahora hay dos virtual hosts
+```
+
+**Experimenta:** borra el HTTPRoute en `demo` y en `demo-v2` y compara cuánto tarda cada uno en volver.
+
+✅ Explica: por qué v2 no necesita claim ni `Object` para el HTTPRoute, pero sí para `remote`.
+
+## Fase 6c — Tests sin clúster
+
+Lee [23-xprin](concepts/23-xprin.md).
+
+```bash
+task test:unit
+```
+
+**Experimenta:** cambia una letra del hostname por defecto en la Composition v2, vuelve a ejecutar, lee los dos fallos (hook y golden) y revierte.
+
+✅ Explica: qué detecta `test:unit` que no detecta `test`, y al revés.
 
 ## Fase 7 — Rompe cosas
 
@@ -145,5 +175,5 @@ Es donde más se aprende. Cada caso está explicado en [troubleshooting.md](trou
 2. Publica un status `replicasListas` leyendo el estado observado en el paso 2.
 3. Añade un segundo `backendRef` con pesos para un canary.
 4. Añade timeouts con `HTTPRoute.spec.rules[].timeouts`.
-5. Migra el XRD a `apiextensions.crossplane.io/v2` sin claims.
+5. Añade a `tests/` un caso que cubra el campo `env` del ejercicio 1.
 6. Cambia el cable driver a `wireguard` o `vxlan` y compara `ip xfrm` / `ip link`.

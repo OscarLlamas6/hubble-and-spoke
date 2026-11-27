@@ -47,6 +47,21 @@ Y la plataforma crea:
 | ServiceExport | `remote` |
 | HTTPRoute → ServiceImport | `hub` |
 
+## Dos formas de pedir lo mismo
+
+| | `WebApp` — claims (v1) | `WebAppV2` — XR namespaced (v2) |
+|---|---|---|
+| Estado | XRD v1 **deprecado** | modelo actual |
+| Objetos | claim + XR | solo el XR |
+| HTTPRoute | envuelto en `Object` | recurso directo |
+| Prueba | `curl -H "Host: webapp.local" localhost:8080` | `curl -H "Host: webapp-v2.local" localhost:8080` |
+
+`task up` despliega las dos. Comparación completa: [docs/concepts/22-crossplane-v2.md](docs/concepts/22-crossplane-v2.md).
+
+## ¿Y xDS?
+
+Es la API con la que Envoy recibe su configuración **en caliente**. Aquí no se escribe a mano: Envoy Gateway traduce `Gateway`/`HTTPRoute` a Listeners, Routes, Clusters y Endpoints. Míralo en vivo con `task xds` y léelo en [docs/concepts/09-envoy-xds.md](docs/concepts/09-envoy-xds.md).
+
 ## Quickstart
 
 Necesitas Linux, Docker, [Task](https://taskfile.dev/installation/) y `jq` ([detalle](docs/prerequisites.md)).
@@ -55,7 +70,8 @@ Necesitas Linux, Docker, [Task](https://taskfile.dev/installation/) y `jq` ([det
 git clone https://github.com/OscarLlamas6/hubble-and-spoke.git
 cd hubble-and-spoke
 task up        # ~4-5 minutos
-task test      # prueba de punta a punta
+task test      # prueba de punta a punta (v1 y v2)
+task test:unit # tests de las Compositions, sin clúster
 task down      # destruye todo
 ```
 
@@ -89,19 +105,21 @@ Todos con la misma plantilla: qué es, qué problema resuelve, conceptos clave, 
 | [05 · provider-kubernetes](docs/concepts/05-provider-kubernetes.md) | [18 · IPsec / libreswan](docs/concepts/18-ipsec-libreswan.md) | [14 · Crossplane CLI](docs/concepts/14-crossplane-cli.md) |
 | [15 · patch-and-transform](docs/concepts/15-function-patch-and-transform.md) | [19 · CoreDNS](docs/concepts/19-coredns.md) | [21 · Three.js y Pages](docs/concepts/21-threejs-github-pages.md) |
 | [16 · go-templating](docs/concepts/16-function-go-templating.md) | [20 · Multi-Cluster Services API](docs/concepts/20-multicluster-services-api.md) | |
-| [17 · auto-ready](docs/concepts/17-function-auto-ready.md) | | |
+| [17 · auto-ready](docs/concepts/17-function-auto-ready.md) | | [23 · xprin](docs/concepts/23-xprin.md) |
+| [22 · Crossplane v2](docs/concepts/22-crossplane-v2.md) | | [24 · yq](docs/concepts/24-yq.md) |
 
 ## Comandos
 
 | Comando | Qué hace |
 |---|---|
 | `task up` / `task down` | ciclo de vida completo |
-| `task test` | smoke test de punta a punta |
+| `task test` | smoke test de punta a punta (`test:v1`, `test:v2`) |
+| `task test:unit` | tests con xprin, sin clúster |
 | `task status` | foto de todo el flujo |
 | `task xds` | config efectiva de Envoy |
-| `task crossplane:render` | pipeline en local, sin clúster |
+| `task crossplane:render` / `crossplane:render:v2` | pipeline en local, sin clúster |
 | `task submariner:status` / `submariner:verify` | túnel y prueba cross-cluster |
-| `task example:apply` / `example:delete` | gestionar claims (`FILE=…`) |
+| `task example:apply` / `example:delete` | gestionar claims (`FILE=…`); sufijo `:v2` para el XR v2 |
 | `task tour` | recorrido 3D en local |
 
 Fases sueltas: `tools`, `check-deps`, `clusters`, `submariner`, `crossplane`, `api`, `gateway`. También funciona `make up`, `make test`, `make down`.
@@ -113,7 +131,8 @@ Fases sueltas: `tools`, `check-deps`, `clusters`, `submariner`, `crossplane`, `a
 ├── Taskfile.yml · Makefile · versions.env
 ├── clusters/        configuración de kind (CIDRs, puertos)
 ├── submariner/      comandos, flags y prueba de conectividad
-├── crossplane/      provider, functions, XRD, Composition, ejemplos
+├── crossplane/      provider, functions, XRD, Composition, ejemplos (v2/ = modelo actual)
+├── tests/           suites de xprin
 ├── gateway/         EnvoyProxy, GatewayClass, Gateway
 ├── scripts/         lo que ejecuta cada task, comentado
 ├── docs/            arquitectura, walkthrough, troubleshooting, concepts/

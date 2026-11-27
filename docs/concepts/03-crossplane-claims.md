@@ -6,7 +6,7 @@ Un **Claim** es la versión *namespaced* de un recurso compuesto: lo que el cons
 
 Es la misma idea que `PersistentVolumeClaim` → `PersistentVolume`: pides en tu namespace, otro objeto de ámbito global representa lo concedido.
 
-> **Contexto de versiones (importante).** Los Claims son el modelo de Crossplane v1. En Crossplane 2.x los XR nuevos (XRD `apiextensions.crossplane.io/v2`) pueden ser namespaced y **no admiten claims**. Los claims siguen funcionando usando un XRD `v1`, cuyos XR quedan en modo `LegacyCluster`. Este lab usa Crossplane 2.4 con XRD v1 a propósito, para estudiar claims; al aplicarlo verás un aviso de deprecación.
+> **Contexto de versiones (importante).** Los claims pertenecen al modelo v1. En Crossplane 2.x los XR modernos **no admiten claims**; siguen funcionando con un XRD `v1` (modo `LegacyCluster`), cuya API está **deprecada** (verás el aviso al aplicarlo). El detalle de qué está deprecado y la alternativa moderna, implementada en este mismo repo, está en [22 · Crossplane v2](22-crossplane-v2.md).
 
 ## ¿Qué problema resuelve?
 
@@ -45,17 +45,9 @@ La Composition **depende** de esas labels: de ahí salen el nombre y el namespac
 
 El `status` hace el viaje inverso: el paso 2 del pipeline escribe `status.hostname` en el XR y Crossplane lo copia al claim; por eso `kubectl get webapp` muestra la columna `HOSTNAME`.
 
-### Cómo sería en el modelo v2 (sin claims)
+### La alternativa sin claims
 
-```yaml
-apiVersion: apiextensions.crossplane.io/v2
-kind: CompositeResourceDefinition
-spec:
-  scope: Namespaced          # el XR mismo vive en el namespace
-  names: { kind: WebApp, plural: webapps }   # sin claimNames
-```
-
-El usuario aplica `WebApp` y ese objeto **es** el XR. La Composition leería `metadata.name` / `metadata.namespace` en lugar de las labels del claim y usaría los managed resources namespaced (`kubernetes.m.crossplane.io`). Es un buen ejercicio de repaso: migra este XRD.
+El lab despliega también `WebAppV2`, donde el usuario aplica el XR namespaced directamente. Comparación lado a lado: [22 · Crossplane v2](22-crossplane-v2.md).
 
 ## Comandos útiles para inspeccionar / debuggear
 

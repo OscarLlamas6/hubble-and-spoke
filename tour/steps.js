@@ -48,14 +48,23 @@ spec:
     docs: [["Claims", "docs/concepts/03-crossplane-claims.md"], ["XRD y Compositions", "docs/concepts/02-crossplane-compositions.md"]],
   },
   {
+    kicker: "Modelo actual", title: "En Crossplane v2 no hay claim", view: HUB,
+    focus: ["xr", "pipeline", "route"], flows: [[provision, ["xr", "pipeline"]], [provision, ["pipeline", "route"]]],
+    body: `<p>La API <b>v1</b> con claims está deprecada. El lab incluye también <code>WebAppV2</code>: un XR
+      <b>namespaced</b> que aplicas directamente y que crea el <code>HTTPRoute</code> sin envoltorio <code>Object</code>.</p>
+      <p>Las dos conviven para que puedas compararlas.</p>`,
+    cmd: "task example:apply:v2\ntask test:v2",
+    docs: [["Crossplane v2", "docs/concepts/22-crossplane-v2.md"]],
+  },
+  {
     kicker: "La receta", title: "El pipeline calcula los recursos", view: HUB,
     focus: ["xr", "pipeline"], flows: [[provision, ["xr", "pipeline", "xr"]]],
     body: `<p>La Composition en <code>mode: Pipeline</code> encadena tres funciones sobre un <b>Desired State</b> compartido:</p>
       <ol><li><b>patch-and-transform</b>: genera 5 <code>Object</code>.</li>
       <li><b>go-templating</b>: lee lo del paso 1, calcula el hostname y completa el HTTPRoute.</li>
       <li><b>auto-ready</b>: marca Ready.</li></ol>`,
-    cmd: "task crossplane:render",
-    docs: [["Pipelines y Functions", "docs/concepts/04-crossplane-pipelines-functions.md"]],
+    cmd: "task crossplane:render\ntask test:unit",
+    docs: [["Pipelines y Functions", "docs/concepts/04-crossplane-pipelines-functions.md"], ["Tests con xprin", "docs/concepts/23-xprin.md"]],
   },
   {
     kicker: "Aprovisionamiento", title: "provider-kubernetes crea en remote", view: WIDE,

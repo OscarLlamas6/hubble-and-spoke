@@ -77,6 +77,14 @@ En v2.4.1, el `.sha256` publicado junto al binario suelto no coincide con él; e
 
 Quedó un `port-forward` abierto: `pgrep -af port-forward`, o `PORT=19100 task xds`.
 
+### `task test:unit` se queda colgado
+
+`context deadline exceeded` al renderizar: ocurrió con la reutilización de contenedores de xprin, ya desactivada en el script. Tras una ejecución interrumpida, limpia: `docker ps` (contenedor `crossplane:v…`) y `docker network ls | grep xprin`.
+
+### Los comandos con `object` no muestran los de la API v2
+
+`kubectl get object` resuelve a la variante cluster-scoped. Usa `khub -n demo-v2 get objects.kubernetes.m.crossplane.io`. Lo mismo para pausar con anotaciones.
+
 ## Submariner
 
 | Síntoma | Causa probable | Qué hacer |
@@ -99,7 +107,8 @@ Quedó un `port-forward` abierto: `pgrep -af port-forward`, o `PORT=19100 task x
 | `Object` no conecta a remote | el Secret debe usar el kubeconfig `--internal`; repite `task crossplane` |
 | Cambios que tardan | el provider observa cada 20 s |
 | El claim no se borra | `khub get object`: algún finalizer espera a `remote`. No quites finalizers sin entender por qué |
-| Aviso `CompositeResourceDefinition v1 is deprecated` | esperado ([claims](concepts/03-crossplane-claims.md)) |
+| Aviso `CompositeResourceDefinition v1 is deprecated` | esperado ([qué está deprecado](concepts/22-crossplane-v2.md)) |
+| XR v2 no compone el HTTPRoute (`forbidden`) | falta [rbac-httproute.yaml](../crossplane/v2/rbac-httproute.yaml) |
 
 ## Gateway / Envoy
 

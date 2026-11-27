@@ -12,7 +12,7 @@
 | Internet | imágenes, charts y CLIs |
 | Puerto 8080 libre | entrada del Gateway |
 
-El resto (`kind`, `kubectl`, `helm`, `subctl`, `crossplane`) se descarga en `./.bin` con `task tools`, sin `sudo` y sin tocar lo que tengas instalado.
+El resto (`kind`, `kubectl`, `helm`, `subctl`, `crossplane`, `xprin`, `yq`) se descarga en `./.bin` con `task tools`, sin `sudo` y sin tocar lo que tengas instalado.
 
 ## Aislamiento de tu entorno
 
@@ -32,6 +32,9 @@ Definidas en [versions.env](../versions.env) y en los manifiestos de paquetes.
 | Crossplane | 2.4.4 | versions.env |
 | Crossplane CLI | v2.4.1 | versions.env |
 | Envoy Gateway | v1.9.4 (Envoy 1.39) | versions.env |
+| xprin / xprin-helpers | v0.7.0 | versions.env |
+| yq | v4.54.3 | versions.env |
+| CRDs de Gateway API (tests) | v1.6.1 | versions.env |
 | provider-kubernetes | v1.4.1 | crossplane/provider-kubernetes.yaml |
 | function-patch-and-transform | v0.11.2 | crossplane/functions.yaml |
 | function-go-templating | v0.13.2 | crossplane/functions.yaml |

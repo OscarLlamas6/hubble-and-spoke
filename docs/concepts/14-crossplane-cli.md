@@ -20,7 +20,9 @@ Depurar una Composition aplicándola y mirando eventos es lento. `render` ejecut
 
 ## Cómo se usa en este POC
 
-- `task crossplane:render` → [scripts/render.sh](../../scripts/render.sh) con [render/xr.yaml](../../crossplane/render/xr.yaml).
+- `task crossplane:render` (v1) y `task crossplane:render:v2` → [scripts/render.sh](../../scripts/render.sh).
+- Se pasa `--xrd` para aplicar defaults e indicar el scope; sin él un XR v1 se renderiza como si fuera v2.
+- Para pruebas automatizadas sobre `render` y `resource validate`: [xprin](23-xprin.md).
 - Desde la 2.3 la CLI vive en su propio repositorio (`crossplane/cli`) y tiene versión independiente de la del controlador, por eso [versions.env](../../versions.env) las fija por separado.
 - Algunos comandos están marcados como beta y pueden cambiar entre versiones.
 

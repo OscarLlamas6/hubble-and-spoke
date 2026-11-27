@@ -128,6 +128,22 @@ Envoy Gateway ──► Deployment y Service de Envoy
 
 Borrar el claim recorre la primera cadena hacia abajo; Lighthouse retira el import al desaparecer el export. El Namespace de `remote` queda huérfano a propósito.
 
+## Las dos APIs
+
+Ambas producen lo mismo y comparten Gateway, Submariner y credenciales.
+
+```mermaid
+flowchart LR
+  c["WebApp (claim, demo)"] --> x["XWebApp (cluster)"] --> o["5 × Object<br/>kubernetes.crossplane.io"]
+  v2["WebAppV2 (XR, demo-v2)"] --> o2["4 × Object<br/>kubernetes.m.crossplane.io"]
+  v2 --> r2["HTTPRoute directo"]
+  o --> rem[("remote")]
+  o2 --> rem
+  o --> r1["HTTPRoute"]
+```
+
+Detalle: [22 · Crossplane v2](concepts/22-crossplane-v2.md).
+
 ## Acoplamientos a vigilar
 
 Valores que deben coincidir en varios sitios; si cambias uno, cambia los demás.
@@ -152,7 +168,7 @@ Valores que deben coincidir en varios sitios; si cambias uno, cambia los demás.
 7. **Gobierno de la API:** `allowedRoutes` por selector, política que impida dos claims con el mismo hostname, cuotas por namespace.
 8. **Observabilidad:** métricas de Envoy, Crossplane y Submariner en Prometheus, trazas, alertas sobre `Ready=False` y sobre el estado de las conexiones.
 9. **Resiliencia de tráfico:** timeouts, reintentos y circuit breaking (`BackendTrafficPolicy`), varias réplicas de Envoy; endpoints a nivel de pod si se necesita balanceo L7 real.
-10. **Migrar a Crossplane v2:** XR namespaced sin claims.
-11. **CI para la plataforma:** `crossplane composition render` con comparación de salida en cada cambio.
+10. **Solo Crossplane v2:** retirar la API v1 con claims; aquí conviven para aprender.
+11. **CI para la plataforma:** ejecutar `task test:unit` en cada cambio de Composition.
 
 Observabilidad queda como *stretch goal*: documentada, no implementada.

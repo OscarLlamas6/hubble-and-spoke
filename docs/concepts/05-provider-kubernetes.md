@@ -65,7 +65,15 @@ khub -n crossplane-system logs -l pkg.crossplane.io/provider=provider-kubernetes
 khub get providerconfigusage                      # quién usa cada ProviderConfig
 ```
 
-El provider instala también la variante namespaced (`objects.kubernetes.m.crossplane.io`), pensada para el modelo v2. Este lab usa la cluster-scoped porque el XR es `LegacyCluster`.
+El provider instala dos variantes y el lab usa **ambas**:
+
+| | API v1 (claims) | API v2 |
+|---|---|---|
+| `Object` | `kubernetes.crossplane.io` (cluster) | `kubernetes.m.crossplane.io` (namespaced) |
+| Configuración | `ProviderConfig` | `ClusterProviderConfig` |
+| `providerConfigRef` | `{name}` | `{kind, name}` |
+
+Con las dos instaladas, `kubectl get object` muestra solo las cluster-scoped; para las modernas usa `objects.kubernetes.m.crossplane.io`. Ver [22](22-crossplane-v2.md).
 
 ## Para profundizar
 
